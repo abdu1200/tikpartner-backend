@@ -25,10 +25,12 @@ class LanguageSerializer(serializers.ModelSerializer):
 """   
 
 """
-- after deserialization, first DRF executes Field Level Validations based on the model definitions
+- after deserialization, first DRF executes Field Level Validations based on the model definitions(like validating required fields, uniqueness(w/h is different in our case, but yeah), formats, etc)
 - field level validations are like 'validate_username()', 'validate_email()', etc in the CustomUserSerializer. And also like 'validate_category()', 'validate_languages()', etc in the InfluencerProfileSerializer
-- and then after that, it exhibits Full Object validation like 'validate()' in the InfluencerProfileSerializer, and this helps us to handle additional validations like our specific update case
+- and then after that, it executes Full Object validation like 'validate()' in the InfluencerProfileSerializer, and this helps us to handle additional validations. like for eg our case, w/h is a custom unique field validation(for user's username and email input) for updating and creating users.
 - and then at last, the InfluencerProfileSerializer returns the whole validated data to the viewset
+
+- when django intializes a nested serializer(CustomUserSerializer) inside InfluencerProfileSerializer, it doesn't pass it the current user instance. so you can't do custom update validation logics inside 'validate_username()' and the likes        
 """
 
 class InfluencerProfileSerializer(serializers.ModelSerializer):
@@ -40,28 +42,33 @@ class InfluencerProfileSerializer(serializers.ModelSerializer):
                   'tiktok_username', 'follower_count', 'average_views', 
                   'engagement_rate', 'verified_status'] 
 
-    
+
+
     def validate(self, data):
         user_data = data.get('user', {})     #deserialized but not yet validated user data
-        user_instance = self.instance.user if self.instance else None    # the current user being updated
 
-        # Only validate uniqueness if the the new value the user put is different from the current user in the db
-        if user_instance:    #if so, then it is a user update case
-            if 'username' in user_data:
-                if (user_data['username'] != user_instance.username and 
-                    CustomUser.objects.filter(username=user_data['username']).exists()):
-                    raise serializers.ValidationError({
-                        'user': {'username': ['A user with that username already exists.']}
-                    })
-                    
-            if 'email' in user_data:
-                if (user_data['email'] != user_instance.email and 
-                    CustomUser.objects.filter(email=user_data['email']).exists()):
-                    raise serializers.ValidationError({
-                        'user': {'email': ['A user with this email already exists.']}
-                    })
+        username = user_data.get("username")
+        email = user_data.get("email")
 
-        return data
+        # Debugging: Check if instance is being passed from the viewset to the InfluencerProfileSerializer
+        print("Instance in validate():", self.instance)
+
+        # updating an existing user
+        if self.instance:
+            if username and username != self.instance.user.username and CustomUser.objects.filter(username=username).exists():
+                raise serializers.ValidationError({"username": "A user with that username already exists."})
+            if email and email != self.instance.user.email and CustomUser.objects.filter(email=email).exists():
+                raise serializers.ValidationError({"email": "A user with this email already exists."})
+        
+        # creating a new user
+        else:
+            if username and CustomUser.objects.filter(username=username).exists():
+                raise serializers.ValidationError({"username": "A user with that username already exists."})
+            if email and CustomUser.objects.filter(email=email).exists():
+                raise serializers.ValidationError({"email": "A user with this email already exists."})
+
+        return data  # Return the validated data
+
 
 
     def create(self, validated_data):
@@ -82,7 +89,10 @@ class InfluencerProfileSerializer(serializers.ModelSerializer):
         if user_data:
             user_instance = instance.user
             for attr, value in user_data.items():    # 'attr' and 'value' represents key and value in the 'user_data' dictionary 
-                setattr(user_instance, attr, value)  # 'setattr' sets the the values in the user_data dictionary to the corresponding fields of the instance.user
+                if attr == "password":  
+                    user_instance.set_password(value)  # Hash the password before saving
+                else:
+                    setattr(user_instance, attr, value)  # 'setattr' sets the the values in the user_data dictionary to the corresponding fields of the instance.user
             user_instance.save()  
 
         if languages_data is not None:

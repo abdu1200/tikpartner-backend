@@ -62,9 +62,31 @@ urlpatterns = [
 
 
 #this would have been the code with out drf default router, we would be manually defining the urlpatterns)
-# urlpatterns = [
-#     path('influencers/', influencer_list, name='influencer-list'),
-#     path('influencers/<int:pk>/', influencer_detail, name='influencer-detail'),
-#     path('brands/', brand_list, name='brand-list'),
-#     path('brands/<int:pk>/', brand_detail, name='brand-detail'),
-# ]
+
+
+"""
+If you're using a viewset from drf to build views, then u need to use drf's routers to define url's or routes
+"""
+
+
+
+"""
+For class-based views (when using drf's APIView for building views)
+
+urlpatterns = [
+    path('influencers/', InfluencerList.as_view(), name='influencer-list'),               # For listing influencers
+    path('influencers/<int:pk>/', InfluencerDetail.as_view(), name='influencer-detail'),  # For a specific influencer
+]
+
+"""
+
+
+"""
+For function-based views (when using drf's api_view decorator for building views)
+
+urlpatterns = [
+    path('influencers/', influencer_list, name='influencer-list'),                   # For listing influencers
+    path('influencers/<int:pk>/', influencer_detail, name='influencer-detail'),      # For a specific influencer
+]
+
+"""

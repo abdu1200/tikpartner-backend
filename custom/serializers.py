@@ -16,17 +16,7 @@ class CustomUserSerializer(serializers.ModelSerializer):
         }
 
     
-    def validate_username(self, value):     # value is the username value in the deserialized user dictionary
-        """Only validate uniqueness for new users."""
-        if self.instance is None and CustomUser.objects.filter(username=value).exists():
-            raise serializers.ValidationError("A user with that username already exists.")
-        return value
-
-    def validate_email(self, value):
-        """Only validate uniqueness for new users."""
-        if self.instance is None and CustomUser.objects.filter(email=value).exists():
-            raise serializers.ValidationError("A user with this email already exists.")
-        return value
+    
 
 
 
