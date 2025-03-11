@@ -17,11 +17,22 @@ Including another URLconf
 from django.contrib import admin
 from django.urls import path, include
 from rest_framework_simplejwt.views import TokenRefreshView
-from custom.views import CustomTokenObtainPairView
+from rest_framework.routers import DefaultRouter
+from custom.views import CustomTokenObtainPairView, PasswordResetRequestView, PasswordResetConfirmView
+from tikPartner.views import InfluencerUserViewSet, BrandUserViewSet
+
+# Register ViewSets using a router
+router = DefaultRouter()
+router.register(r'auth/influencer-register', InfluencerUserViewSet, basename='influencer')
+router.register(r'auth/brand-register', BrandUserViewSet, basename='brand')
+
 
 urlpatterns = [
     path('admin/', admin.site.urls),
-    path("api/token/", CustomTokenObtainPairView.as_view(), name="get_token"),
-    path("api/token/refresh/", TokenRefreshView.as_view(), name="refresh"),
+    path("auth/login/", CustomTokenObtainPairView.as_view(), name="get_token"),
+    path("auth/token/refresh/", TokenRefreshView.as_view(), name="refresh_token"),
+    path("auth/password-reset/", PasswordResetRequestView.as_view(), name="password_reset"),
+    path("auth/password-reset/confirm/", PasswordResetConfirmView.as_view(), name="password_reset_confirm"),
     path("api/", include("tikPartner.urls")),
+    path("", include(router.urls)),
 ]

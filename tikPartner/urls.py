@@ -1,14 +1,13 @@
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
-from .views import CategoryViewSet, LanguageViewSet, InfluencerUserViewSet, BrandUserViewSet
+from .views import CategoryViewSet, LanguageViewSet, ConversationViewSet
 from drf_yasg.views import get_schema_view
 from drf_yasg import openapi
 
 router = DefaultRouter()
 router.register(r'categories', CategoryViewSet, basename='category')
 router.register(r'languages', LanguageViewSet, basename='language')
-router.register(r'influencers', InfluencerUserViewSet, basename='influencer')
-router.register(r'brands', BrandUserViewSet, basename='brand')
+router.register(r'conversations', ConversationViewSet, basename='conversation')
 
 
 # Schema generation for Swagger Docs

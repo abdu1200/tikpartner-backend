@@ -1,6 +1,6 @@
 from rest_framework import serializers
-from .models import Category, Language, InfluencerProfile, BrandProfile
-from custom.serializers import CustomUserSerializer 
+from .models import Category, Language, InfluencerProfile, BrandProfile, Conversation
+from custom.user_serializers import CustomUserSerializer 
 from custom.models import CustomUser
 
 
@@ -21,7 +21,7 @@ class LanguageSerializer(serializers.ModelSerializer):
 """
 - after deserialization, when a serializer validates the data, it checks required fields, formats, unique constraints
 - If validation passes, the validated_data is returned to the viewset and then used in create() or update()
-- so the common error is occurring because the unique field validation(by checking the db) is happening at the serializer level before reaching your update method
+- so the COMMON ERROR is occurring because the unique field validation(by checking the db) is happening at the serializer level before reaching your update method
 """   
 
 """
@@ -142,6 +142,36 @@ class BrandProfileSerializer(serializers.ModelSerializer):
         fields = ['user', 'category', 'company_name', 'website', 
                   'company_size', 'verification_documents']
 
+    
+
+    def validate(self, data):
+        user_data = data.get('user', {})     #deserialized but not yet validated user data
+
+        username = user_data.get("username")
+        email = user_data.get("email")
+
+        # Debugging: Check if instance is being passed from the viewset to the BrandProfileSerializer
+        print("Instance in validate():", self.instance)
+
+        # updating an existing user
+        if self.instance:
+            if username and username != self.instance.user.username and CustomUser.objects.filter(username=username).exists():
+                raise serializers.ValidationError({"username": "A user with that username already exists."})
+            if email and email != self.instance.user.email and CustomUser.objects.filter(email=email).exists():
+                raise serializers.ValidationError({"email": "A user with this email already exists."})
+        
+        # creating a new user
+        else:
+            if username and CustomUser.objects.filter(username=username).exists():
+                raise serializers.ValidationError({"username": "A user with that username already exists."})
+            if email and CustomUser.objects.filter(email=email).exists():
+                raise serializers.ValidationError({"email": "A user with this email already exists."})
+
+        return data  # Return the validated data
+
+
+
+
     def create(self, validated_data):
         user_data = validated_data.pop('user')
         user = CustomUser.objects.create(**user_data)  
@@ -162,3 +192,18 @@ class BrandProfileSerializer(serializers.ModelSerializer):
 
         instance.save()  
         return instance
+
+
+
+
+class UserBasicSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = CustomUser
+        fields = ['id', 'username']
+
+class ConversationSerializer(serializers.ModelSerializer):
+    participants = UserBasicSerializer(many=True, read_only=True)
+    
+    class Meta:
+        model = Conversation
+        fields = ['id', 'participants', 'created_at']
