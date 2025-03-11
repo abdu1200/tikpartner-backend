@@ -18,7 +18,7 @@ and docker will use them to install packages inside a container
 from pathlib import Path
 import os
 from datetime import timedelta
-"""
+
                                                                         ######  
 from dotenv import load_dotenv 
 import environ  #for database_url b/c it automates the dictionary parsing and everything
@@ -41,18 +41,18 @@ DATABASES = {
 DATABASES['default']['OPTIONS'] = {
     'sslmode': 'require',  # Enforces SSL for Railway
 }
-"""
+
 
 ### Build paths inside the project like this: BASE_DIR / 'subdir'.        ######
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-tna8a!z9j&5dhrzaj7=jwn6z^gi3fnxujxk7(bvcw6e$+^hi4v'
-#SECRET_KEY = os.getenv('SECRET_KEY')
+#SECRET_KEY = 'django-insecure-tna8a!z9j&5dhrzaj7=jwn6z^gi3fnxujxk7(bvcw6e$+^hi4v'
+SECRET_KEY = os.getenv('SECRET_KEY')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = False
 
 # '.onrender.com',  
 ALLOWED_HOSTS = [
@@ -126,16 +126,16 @@ CHANNEL_LAYERS = {
 
 
 # Database
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.postgresql',
-        'NAME': 'tikDatabase',
-        'USER': 'postgres',
-        'PASSWORD': 'm0md1dfa',
-        'HOST': 'localhost',
-        'PORT': '5432',  # default PostgreSQL port
-    }
-}
+# DATABASES = {
+#     'default': {
+#         'ENGINE': 'django.db.backends.postgresql',
+#         'NAME': 'tikDatabase',
+#         'USER': 'postgres',
+#         'PASSWORD': 'm0md1dfa',
+#         'HOST': 'localhost',
+#         'PORT': '5432',  # default PostgreSQL port
+#     }
+# }
 
 
 

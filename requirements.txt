@@ -17,3 +17,6 @@ typing_extensions==4.12.2
 uritemplate==4.1.1
 gunicorn
 django-cors-headers
+django-channels
+channels-redis
+uvicorn
