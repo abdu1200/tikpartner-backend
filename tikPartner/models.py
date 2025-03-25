@@ -26,6 +26,7 @@ class InfluencerProfile(models.Model):
     languages = models.ManyToManyField(Language, related_name='influencers') 
     budget_min = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
     budget_max = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
+    stripe_account_id = models.CharField(max_length=255, blank=True, null=True)
 
     # TikTok Specific
     tiktok_username = models.CharField(max_length=30, unique=True)
@@ -132,11 +133,15 @@ class Payment(models.Model):
         ('refunded', 'Refunded'),
     )
 
-    contract = models.ForeignKey(Contract, on_delete=models.CASCADE, related_name='payments') #milestone payments or partial releases
+    contract = models.OneToOneField(Contract, on_delete=models.CASCADE, related_name='payment') # a contract can only have one payment
     amount = models.DecimalField(max_digits=10, decimal_places=2)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
     payment_method = models.CharField(max_length=50, blank=True)
     transaction_id = models.CharField(max_length=255, blank=True, null=True)
+    transfer_id = models.CharField(max_length=255, blank=True, null=True)
+    transfer_amount = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True)
+    transfer_date = models.DateTimeField(null=True, blank=True)
+    platform_fee = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

@@ -104,14 +104,17 @@ class ChatConsumer(AsyncWebsocketConsumer):
                 }
             )
 # Each WebSocket client (user) represents its own frontend, where the user can send and receive messages in real time. When a user establishes a WebSocket connection, it's like their personal communication channel to interact with the backend and receive updates.
-"""
-messages sent using 'self.channel_layer.group_send' are sent directly to the WebSocket clients (users or channel_names) connected to the room group. 
-The websocket server sends the message to all users in the specified group (self.room_group_name). 
-The WebSocket clients(users) then receive the message and handle it according to the specified message type(chat_message or messages_read or ...)
 
-- the real time things, like seeing the message pop up when ur in the conversation or seeing the double tick when somebody sees ur message
 
-"""
+
+
+#messages sent using 'self.channel_layer.group_send' are sent directly to the WebSocket clients (users or channel_names) connected to the room group. 
+#The websocket server sends the message to all users in the specified group (self.room_group_name). 
+#The WebSocket clients(users) then receive the message and handle it according to the specified message type(chat_message or messages_read or ...)
+
+#the real time things, like seeing the message pop up when ur in the conversation or seeing the double tick when somebody sees ur message
+
+
 
     # Receiving the pushed dictionary message from room group and formatting it to json and sending it to the websocket clients(using their channels_name or websocket connection)
     async def chat_message(self, event):
@@ -135,14 +138,14 @@ The WebSocket clients(users) then receive the message and handle it according to
         }))
     
 
-"""
-ACTUAL PROCESS
-- "self.channel_layer.group_send" pushes/sends the message (in dictionary format) to the entire room group (where there is all WebSocket clients in that group).
-- 'chat_message' method receives that pushed/sent dictionary(from the room group) and converts it to a JSON-encoded string. Then, it sends the JSON message to each WebSocket client using their individual WebSocket connection (via await self.send).
-- The dictionary that is sent using group_send is passed to the chat_message method as the event parameter.
-- It's the 'chat_message' method that actually uses the user's assigned self.channel_name (WebSocket connection) to send the message to each WebSocket client (using their individual self.channel_name).
-- SO, 'group_send' handles the distribution of the message to the group, and chat_message is responsible for formatting and sending the message to the clients over their WebSocket connections.
-"""
+
+#ACTUAL PROCESS
+# "self.channel_layer.group_send" pushes/sends the message (in dictionary format) to the entire room group (where there is all WebSocket clients in that group).
+# 'chat_message' method receives that pushed/sent dictionary(from the room group) and converts it to a JSON-encoded string. Then, it sends the JSON message to each WebSocket client using their individual WebSocket connection (via await self.send).
+# The dictionary that is sent using group_send is passed to the chat_message method as the event parameter.
+# It's the 'chat_message' method that actually uses the user's assigned self.channel_name (WebSocket connection) to send the message to each WebSocket client (using their individual self.channel_name).
+# SO, 'group_send' handles the distribution of the message to the group, and chat_message is responsible for formatting and sending the message to the clients over their WebSocket connections.
+
 
 
 

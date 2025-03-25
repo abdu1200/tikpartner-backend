@@ -4,8 +4,8 @@ from django.contrib.auth import authenticate
 from django.contrib.auth import get_user_model
 from django.contrib.auth.tokens import PasswordResetTokenGenerator
 from django.utils.http import urlsafe_base64_decode
-from tikPartner.models import InfluencerProfile
-from tikPartner.serializers import InfluencerProfileSerializer
+from tikPartner.models import InfluencerProfile, BrandProfile
+from tikPartner.serializers import InfluencerProfileSerializer, BrandProfileSerializer
 from .user_serializers import CustomUserSerializer
 
 

@@ -19,7 +19,7 @@ from pathlib import Path
 import os
 from datetime import timedelta
 
-                                                                        ######  
+"""                                                               ######  
 from dotenv import load_dotenv 
 import environ  #for database_url b/c it automates the dictionary parsing and everything
 
@@ -41,18 +41,18 @@ DATABASES = {
 DATABASES['default']['OPTIONS'] = {
     'sslmode': 'require',  # Enforces SSL for Railway
 }
-
+"""
 
 ### Build paths inside the project like this: BASE_DIR / 'subdir'.        ######
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 
 # SECURITY WARNING: keep the secret key used in production secret!
-#SECRET_KEY = 'django-insecure-tna8a!z9j&5dhrzaj7=jwn6z^gi3fnxujxk7(bvcw6e$+^hi4v'
-SECRET_KEY = os.getenv('SECRET_KEY')
+SECRET_KEY = 'django-insecure-tna8a!z9j&5dhrzaj7=jwn6z^gi3fnxujxk7(bvcw6e$+^hi4v'
+#SECRET_KEY = os.getenv('SECRET_KEY')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = False
+DEBUG = True
 
 # '.onrender.com',  
 ALLOWED_HOSTS = [
@@ -126,16 +126,16 @@ CHANNEL_LAYERS = {
 
 
 # Database
-# DATABASES = {
-#     'default': {
-#         'ENGINE': 'django.db.backends.postgresql',
-#         'NAME': 'tikDatabase',
-#         'USER': 'postgres',
-#         'PASSWORD': 'm0md1dfa',
-#         'HOST': 'localhost',
-#         'PORT': '5432',  # default PostgreSQL port
-#     }
-# }
+DATABASES = {
+    'default': {
+        'ENGINE': 'django.db.backends.postgresql',
+        'NAME': 'tikDatabase',
+        'USER': 'postgres',
+        'PASSWORD': 'm0md1dfa',
+        'HOST': 'localhost',
+        'PORT': '5432',  # default PostgreSQL port
+    }
+}
 
 
 
@@ -199,6 +199,8 @@ SIMPLE_JWT = {
 CORS_ALLOW_ALL_ORIGINS = True
 
 
+
+
 EMAIL_HOST = 'smtp.gmail.com'    #we're using Gmail's email(smtp) server for sending emails from our django app
 EMAIL_PORT = 587    # Port for TLS  
 EMAIL_USE_TLS = True    # Use TLS for security
@@ -209,3 +211,11 @@ EMAIL_HOST_PASSWORD = "zhvy gnbx puqo rnzy"   # Your Gmail app password (use app
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
 
 DEFAULT_FROM_EMAIL = EMAIL_HOST_USER   # This will be used as the default "from" email in sent emails
+
+
+
+
+STRIPE_SECRET_KEY = 'sk_test_51PPN5NRt8NVEmh7TUCUTWM3Zc1y4GZg4REs2knS1PTgj3ZG0pCURneFxbhkjbIBwT5G5puYbTG7Gvy15p78raaUt00cBkYj4Mi'
+STRIPE_PUBLISHABLE_KEY = 'pk_test_51PPN5NRt8NVEmh7T5gwdm6cP4qAfXlKy8pwcMiEb4NtuBnGL8w9farKjO5t4SqBzFeT7O5e1j21KkCTrLjOFdhQA00LakRPJSZ'
+# STRIPE_SECRET_KEY = os.getenv('STRIPE_SECRET_KEY')
+# STRIPE_PUBLISHABLE_KEY = os.getenv('STRIPE_PUBLISHABLE_KEY') 

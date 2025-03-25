@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Category, Language, InfluencerProfile, BrandProfile, Conversation
+from .models import Category, Language, InfluencerProfile, BrandProfile, Conversation, Contract, Deliverable, Payment, Review, Dispute
 from custom.user_serializers import CustomUserSerializer 
 from custom.models import CustomUser
 
@@ -171,27 +171,32 @@ class BrandProfileSerializer(serializers.ModelSerializer):
 
 
 
-
     def create(self, validated_data):
         user_data = validated_data.pop('user')
-        user = CustomUser.objects.create(**user_data)  
+        user = CustomUser.objects.create_user(**user_data)  
         brand_profile = BrandProfile.objects.create(user=user, **validated_data)
         return brand_profile
 
 
     def update(self, instance, validated_data):
-        user_data = validated_data.pop('user', None)  
+        user_data = validated_data.pop('user', None)        
 
         if user_data:
+            user_instance = instance.user
             for attr, value in user_data.items():
-                setattr(instance.user, attr, value)  
-            instance.user.save()  
+                if attr == "password": 
+                    user_instance.set_password(value)
+                else:
+                    setattr(user_instance, attr, value)  
+            user_instance.save()  
 
         for attr, value in validated_data.items():
             setattr(instance, attr, value)  
 
         instance.save()  
         return instance
+
+
 
 
 
@@ -207,3 +212,176 @@ class ConversationSerializer(serializers.ModelSerializer):
     class Meta:
         model = Conversation
         fields = ['id', 'participants', 'created_at']
+
+
+
+
+
+
+
+class ContractSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Contract
+        fields = '__all__'       #includes all Contact model fields
+        read_only_fields = ('created_at', 'updated_at')
+
+
+class ContractDetailSerializer(serializers.ModelSerializer):
+    brand_name = serializers.ReadOnlyField(source='brand.company_name')   #a custom field #it is the 'company_name' property of the related 'brand' object/field
+    influencer_name = serializers.ReadOnlyField(source='influencer.tiktok_username')  #a custom field #it is the 'tiktok_username' property of the related 'influencer' object/field
+    
+    class Meta:
+        model = Contract
+        fields = '__all__'       #includes all Contract model fields plus the two new custom fields
+        read_only_fields = ('created_at', 'updated_at')
+
+
+
+
+
+
+
+class DeliverableSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Deliverable
+        fields = '__all__'
+        read_only_fields = ('submitted_at',)
+
+
+class DeliverableDetailSerializer(serializers.ModelSerializer):
+    brand_name = serializers.ReadOnlyField(source='contract.brand.company_name')
+    influencer_name = serializers.ReadOnlyField(source='contract.influencer.tiktok_username')
+    
+    class Meta:
+        model = Deliverable
+        fields = '__all__'
+        read_only_fields = ('submitted_at',)
+
+
+
+
+
+
+
+
+class PaymentSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Payment
+        fields = '__all__'
+        read_only_fields = ('created_at', 'updated_at')
+
+
+class PaymentDetailSerializer(serializers.ModelSerializer):
+    brand_name = serializers.ReadOnlyField(source='contract.brand.company_name')     # in the source, you can reference a field of the given model(so like contract.brand...) 
+    influencer_name = serializers.ReadOnlyField(source='contract.influencer.tiktok_username')
+    
+    class Meta:
+        model = Payment
+        fields = '__all__'
+        read_only_fields = ('created_at', 'updated_at')
+
+"""
+# Note - There is a difference
+
+ for the above code: brand_name = serializers.ReadOnlyField(source='contract.brand.company_name')  - this is a serializer custom field 
+
+ for the below code: reviewer_info = UserSerializer(source='reviewer', read_only=True) - this is a nested serializer field(a readable nested serializer field)
+"""
+
+
+
+
+#Review serializer
+class UserSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = CustomUser
+        fields = ['id', 'username', 'email']
+
+class ReviewSerializer(serializers.ModelSerializer):
+    reviewer_info = UserSerializer(source='reviewer', read_only=True)   # this returns the reviewer user information(id, username & email)   # reviewer & reviewee are user objects here
+    reviewee_info = UserSerializer(source='reviewee', read_only=True)
+    
+    class Meta:
+        model = Review
+        fields = [
+            'id', 'contract', 'reviewer', 'reviewee', 
+            'rating', 'review_text', 'created_at',
+            'reviewer_info', 'reviewee_info'
+        ] 
+        read_only_fields = ['reviewer', 'created_at']     # here the reviewer is read only b/c we're gonna extract it from the user making the request(the influencer or brand or clients)  # so in the creation(post) of a review, you only pass the reviewee user(its user id)
+    
+    # when the viewset calls serializer.is_valid(), DRF converts primitives like IDs(contract: 1) into model instances for fields defined as ForeignKey, OneToOneField.
+    # So "contract: 1" in JSON request becomes a contract object inside validate(). 
+
+    def validate(self, data):    # this is just a custom validation(object level validation after field level validation)
+        contract = data.get('contract')    # this is contract object
+        reviewee = data.get('reviewee')    # reviewee = user object  
+        
+        if not contract:
+            raise serializers.ValidationError("Contract is required")
+        
+        # Ensure reviewee is part of the contract
+        if reviewee.id != contract.brand.user.id and reviewee.id != contract.influencer.user.id:
+            raise serializers.ValidationError("Reviewee must be a party in the contract")
+        
+        # Ensure reviewer is also part of the contract  
+        reviewer = self.context['request'].user      # this is how you access 'the current user making the request' in the serializer    # reviewer = the current user object
+        if reviewer.id != contract.brand.user.id and reviewer.id != contract.influencer.user.id:
+            raise serializers.ValidationError("You must be a party in the contract to leave a review")
+        
+        # Ensure reviewer is not reviewing themselves
+        if reviewer.id == reviewee.id:
+            raise serializers.ValidationError("You cannot review yourself")
+        
+        return data
+    
+    def create(self, validated_data):
+        validated_data['reviewer'] = self.context['request'].user    # this is because the returned data(validated_data) from the validate method doesn't include the 'reviewer'
+        return super().create(validated_data)
+
+
+
+# contract_details = serializers.SerializerMethodField() - this is a serializer method field
+
+
+#Dispute serializer
+class DisputeSerializer(serializers.ModelSerializer):
+    initiated_by_name = serializers.CharField(source='initiated_by.username', read_only=True) # serializer custom field
+    contract_details = serializers.SerializerMethodField()   # Serializer method fields are read-only by default. They are only used to display computed structured data in the serialized output(dic or json)
+    
+    class Meta:
+        model = Dispute
+        fields = [
+            'id', 'contract', 'initiated_by', 'dispute_type',
+            'description', 'status', 'created_at', 'resolved_at',
+            'initiated_by_name', 'contract_details'
+        ]
+        read_only_fields = ['initiated_by', 'created_at', 'resolved_at', 'status']  # we get 'initiated_by' from the user making the request
+    
+    def get_contract_details(self, obj):    # obj here is the Dispute instance being serialized(the one that is being serialized to dic or json for client)
+        return {
+            'id': obj.contract.id,
+            'brand': obj.contract.brand.company_name,
+            'influencer': obj.contract.influencer.tiktok_username
+        }
+    
+    def validate(self, data):
+        # Validate or check that the user is part of the contract
+        contract = data.get('contract')
+        user = self.context['request'].user
+        
+        if not contract:
+            raise serializers.ValidationError("Contract is required")
+            
+        # Check if user is part of the contract
+        if user.id != contract.brand.user.id and user.id != contract.influencer.user.id:
+            raise serializers.ValidationError("You must be a party in the contract to open a dispute on it")
+            
+        return data
+    
+    """
+    def create(self, validated_data):
+        validated_data['initiated_by'] = self.context['request'].user     # in this case, this line logic is done by the 'perform_create' in the viewset
+        
+        return super().create(validated_data)
+    """

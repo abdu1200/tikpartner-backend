@@ -1,6 +1,6 @@
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
-from .views import CategoryViewSet, LanguageViewSet, ConversationViewSet
+from .views import CategoryViewSet, LanguageViewSet, ConversationViewSet, ContractViewSet, DeliverableViewSet, PaymentViewSet, InfluencerStripeOnboardingView, ReviewViewSet
 from drf_yasg.views import get_schema_view
 from drf_yasg import openapi
 
@@ -8,6 +8,11 @@ router = DefaultRouter()
 router.register(r'categories', CategoryViewSet, basename='category')
 router.register(r'languages', LanguageViewSet, basename='language')
 router.register(r'conversations', ConversationViewSet, basename='conversation')
+router.register(r'contracts', ContractViewSet, basename='contract')
+router.register(r'deliverables', DeliverableViewSet, basename='deliverable')
+router.register(r'payments', PaymentViewSet, basename='payment')
+router.register(r'reviews', ReviewViewSet, basename='review')
+
 
 
 # Schema generation for Swagger Docs
@@ -27,6 +32,7 @@ schema_view = get_schema_view(
 urlpatterns = [
     path('', include(router.urls)),
     path('docs/', schema_view.as_view(), name='api_docs'),
+    path('api/influencers/stripe-onboarding/', InfluencerStripeOnboardingView.as_view(), name='stripe-onboarding'),
 ]
 
 
