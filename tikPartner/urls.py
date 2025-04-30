@@ -1,6 +1,6 @@
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
-from .views import CategoryViewSet, LanguageViewSet, ConversationViewSet, ContractViewSet, DeliverableViewSet, PaymentViewSet, InfluencerStripeOnboardingView, ReviewViewSet
+from .views import CategoryViewSet, LanguageViewSet, ConversationViewSet, ContractViewSet, DeliverableViewSet, PaymentViewSet, InfluencerStripeOnboardingView, ReviewViewSet, TikTokAuthView
 from drf_yasg.views import get_schema_view
 from drf_yasg import openapi
 
@@ -31,8 +31,9 @@ schema_view = get_schema_view(
 
 urlpatterns = [
     path('', include(router.urls)),
-    path('docs/', schema_view.as_view(), name='api_docs'),
-    path('api/influencers/stripe-onboarding/', InfluencerStripeOnboardingView.as_view(), name='stripe-onboarding'),
+    path('docs/', schema_view.as_view(), name='api-docs'),
+    path('auth/tiktok/', TikTokAuthView.as_view(), name='tiktok-auth'),
+    path('influencers/stripe-onboarding/', InfluencerStripeOnboardingView.as_view(), name='stripe-onboarding'),
 ]
 
 

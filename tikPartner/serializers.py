@@ -38,10 +38,12 @@ class InfluencerProfileSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = InfluencerProfile
-        fields = ['user', 'category', 'languages', 'budget_min', 'budget_max', 
-                  'tiktok_username', 'follower_count', 'average_views', 
-                  'engagement_rate', 'verified_status'] 
-
+        fields = [
+            'user', 'category', 'languages', 'budget',
+            'tiktok_username', 'avatar_url', 'display_name',
+            'follower_count', 'video_count', 'likes_count',
+            'stripe_account_id'
+        ]
 
 
     def validate(self, data):

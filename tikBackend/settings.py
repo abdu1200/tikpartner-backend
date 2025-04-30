@@ -19,7 +19,8 @@ from pathlib import Path
 import os
 from datetime import timedelta
 
-"""                                                               ######  
+                                     
+                     ######  
 from dotenv import load_dotenv 
 import environ  #for database_url b/c it automates the dictionary parsing and everything
 
@@ -41,18 +42,19 @@ DATABASES = {
 DATABASES['default']['OPTIONS'] = {
     'sslmode': 'require',  # Enforces SSL for Railway
 }
-"""
+
+
 
 ### Build paths inside the project like this: BASE_DIR / 'subdir'.        ######
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-tna8a!z9j&5dhrzaj7=jwn6z^gi3fnxujxk7(bvcw6e$+^hi4v'
-#SECRET_KEY = os.getenv('SECRET_KEY')
+#SECRET_KEY = 'django-insecure-tna8a!z9j&5dhrzaj7=jwn6z^gi3fnxujxk7(bvcw6e$+^hi4v'
+SECRET_KEY = os.getenv('SECRET_KEY')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+#DEBUG = True
 
 # '.onrender.com',  
 ALLOWED_HOSTS = [
@@ -126,16 +128,16 @@ CHANNEL_LAYERS = {
 
 
 # Database
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.postgresql',
-        'NAME': 'tikDatabase',
-        'USER': 'postgres',
-        'PASSWORD': 'm0md1dfa',
-        'HOST': 'localhost',
-        'PORT': '5432',  # default PostgreSQL port
-    }
-}
+# DATABASES = {
+#     'default': {
+#         'ENGINE': 'django.db.backends.postgresql',
+#         'NAME': 'tikDatabase',
+#         'USER': 'postgres',
+#         'PASSWORD': 'm0md1dfa',
+#         'HOST': 'localhost',
+#         'PORT': '5432',  # default PostgreSQL port
+#     }
+# }
 
 
 
@@ -219,3 +221,14 @@ STRIPE_SECRET_KEY = 'sk_test_51PPN5NRt8NVEmh7TUCUTWM3Zc1y4GZg4REs2knS1PTgj3ZG0pC
 STRIPE_PUBLISHABLE_KEY = 'pk_test_51PPN5NRt8NVEmh7T5gwdm6cP4qAfXlKy8pwcMiEb4NtuBnGL8w9farKjO5t4SqBzFeT7O5e1j21KkCTrLjOFdhQA00LakRPJSZ'
 # STRIPE_SECRET_KEY = os.getenv('STRIPE_SECRET_KEY')
 # STRIPE_PUBLISHABLE_KEY = os.getenv('STRIPE_PUBLISHABLE_KEY') 
+
+
+
+
+
+
+TIKTOK_CLIENT_KEY = 'sbaweuralgopknrhuo'
+TIKTOK_CLIENT_SECRET = 'Kr3WE2CbqjhID2gsDoty7DpMEGT3wA05'
+TIKTOK_REDIRECT_URI = 'https://tikfrontend-latest.onrender.com/InfluencerSignup'
+
+

@@ -24,16 +24,16 @@ class InfluencerProfile(models.Model):
     user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='influencer_profile')
     category = models.ForeignKey(Category, on_delete=models.SET_NULL, null=True, related_name='influencers')
     languages = models.ManyToManyField(Language, related_name='influencers') 
-    budget_min = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
-    budget_max = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
+    budget = models.CharField(max_length=30, blank=True)
     stripe_account_id = models.CharField(max_length=255, blank=True, null=True)
 
     # TikTok Specific
     tiktok_username = models.CharField(max_length=30, unique=True)
+    avatar_url = models.CharField(max_length=500, blank=True, null=True)
+    display_name = models.CharField(max_length=30, unique=True, null=True)
     follower_count = models.IntegerField(default=0)
-    average_views = models.IntegerField(default=0)
-    engagement_rate = models.DecimalField(max_digits=5, decimal_places=2, default=0)
-    verified_status = models.BooleanField(default=False)
+    video_count = models.IntegerField(default=0)
+    likes_count = models.IntegerField(default=0)
 
     def __str__(self):
         return self.user.email

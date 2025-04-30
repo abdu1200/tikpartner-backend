@@ -15,6 +15,8 @@ from .serializers import CategorySerializer, LanguageSerializer, BrandProfileSer
 from .services.escrow_service import EscrowService
 from .services.stripe_escrow_service import StripeEscrowService
 import stripe
+import requests
+from urllib.parse import urlencode
 
 stripe.api_key = settings.STRIPE_SECRET_KEY
 
@@ -50,6 +52,16 @@ class InfluencerUserViewSet(ModelViewSet):
             return [AllowAny()]
         return [AllowAny()]    #this block you to see influencer details(specific resource) like 'api/influencers/1/'
 
+    def destroy(self, request, *args, **kwargs):
+        try:  #this is to delete the user when deleting its associated influencer profile right away
+            instance = self.get_object()
+            user = instance.user  # capture user BEFORE deleting the instance(influencer profile)   
+            instance.delete()     # delete the InfluencerProfile
+            user.delete()         # delete the associated User
+            return Response(status=204)
+        except Exception as e:
+            return Response({"error": str(e)}, status=400)
+
 
     @action(detail=False, methods=['GET', 'PUT'], permission_classes=[IsAuthenticated])
     def me(self, request):
@@ -80,6 +92,16 @@ class BrandUserViewSet(ModelViewSet):
         elif self.action in ['list', 'update', 'partial_update', 'destroy']:
             return [IsAdminUser()]
         return [IsAuthenticated()]
+
+    def destroy(self, request, *args, **kwargs):
+        try:   #this is to delete the user when deleting its associated brand profile right away
+            instance = self.get_object()
+            user = instance.user  # capture user BEFORE deleting the instance(brand profile)
+            instance.delete()     # delete the InfluencerProfile
+            user.delete()         # delete the associated User
+            return Response(status=204)
+        except Exception as e:
+            return Response({"error": str(e)}, status=400)
 
     @action(detail=False, methods=['GET', 'PUT'], permission_classes=[IsAuthenticated])
     def me(self, request):
@@ -245,7 +267,8 @@ class ConversationViewSet(ModelViewSet):
 - typical json request body data: { "participants": [2, 3] }
 - so 'user_ids' including the current user(id 1 added automatically) is like: user_ids = [1, 2, 3] 
 
-- typically a serializer handles deserialization(from json to dic), input validation, object creation and converting an instance to a dictionary(before it gets serialized  by the viewset)
+- DRF handles the initial parsing of request data to a dictionary before it reaches your view. This parsing happens in DRF's request handling pipeline, not in your view.
+- typically a serializer handles input validation, object creation and converting an instance to a dictionary(before it gets serialized  by the viewset)
 - But in the case of 'ConversationViewSet', there is no deserialization and input validation at all. the object creation(conversation instance) is done by the viewset itself(in the create method)
 so in this case, the ConversationSerializer's job is only to convert an instance(the created conversation instance) to a dictionary and then give it back to the viewset to serialized and returned to the client
 
@@ -648,3 +671,145 @@ class DisputeViewSet(ModelViewSet):
             raise PermissionDenied("Only staff members can resolve disputes")
             
         serializer.save()
+
+
+
+
+
+
+
+
+
+class TikTokAuthView(APIView):
+    permission_classes = [AllowAny]  # Allow unauthenticated access for OAuth flow
+
+    def post(self, request):
+        # Get the authorization code(access code) from the request
+        code = request.data.get('code')
+        #print(code)
+
+        if code and ('&' in code or '%26' in code):
+            code = code.split('&')[0].split('%26')[0]
+
+        if not code:
+            return Response({"error": "Authorization code is required"}, status=status.HTTP_400_BAD_REQUEST)
+
+        # TikTok OAuth endpoints
+        token_url = "https://open.tiktokapis.com/v2/oauth/token/"  # this is the url to request tiktok for access token passing auth/access code
+        user_info_url = "https://open.tiktokapis.com/v2/user/info/"  # this is the url to request/fetch user tiktok data passing access token from tiktok's api
+        
+        # Your TikTok app credentials - store these in Django settings.py
+        client_key = settings.TIKTOK_CLIENT_KEY
+        client_secret = settings.TIKTOK_CLIENT_SECRET
+        redirect_uri = settings.TIKTOK_REDIRECT_URI
+        
+
+        # Exchange the code for an access token
+        token_payload = {
+            'client_key': client_key,
+            'client_secret': client_secret,
+            'code': code,
+            'grant_type': 'authorization_code',
+            'redirect_uri': redirect_uri
+        }  
+        
+        #In the backend, you pass redirect_uri to the access token URL mainly for security reasons, nothing else.
+        
+        try:
+            # 1111111111111 to Make request to TikTok for access token(passing auth/access code)
+            
+            headers = {
+                'Content-Type': 'application/x-www-form-urlencoded',
+                'Cache-Control': 'no-cache',
+            }
+
+            token_response = requests.post(token_url, headers=headers, data=token_payload)
+
+            print("Status code:", token_response.status_code)
+            print("token Response text:", token_response.text)
+
+            # print("Request URL:", token_response.request.url)
+            # print("Request Headers:", token_response.request.headers)
+            # print("Request Body:", token_response.request.body)
+            # print("Response Status:", token_response.status_code)
+            # print("Response Content:", token_response.text)
+
+
+
+            if token_response.status_code != 200:
+                return Response({"error": "Failed to obtain access tokens", "details": token_response.text}, 
+                                status=status.HTTP_400_BAD_REQUEST)
+
+            try:
+                token_data = token_response.json()
+            except ValueError:
+                return Response({"error": "Invalid JSON in token response", "details": token_response.text},
+                                status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+            # Extract tokens and user info from response
+            access_token = token_data['access_token']
+            open_id = token_data['open_id']
+            
+
+
+
+
+
+            
+            # 222222222 Request/Fetch user info using the access token from tiktok
+            headers = {
+                "Authorization": f"Bearer {access_token}"
+            }
+            
+            params = {
+                "fields": "open_id,union_id,avatar_url,display_name,username,follower_count,video_count,likes_count"
+            }
+            
+            user_response = requests.get(user_info_url, headers=headers, params=params)
+
+            print("Status code:", user_response.status_code)
+            print("user Response text:", user_response.text)
+
+
+            if user_response.status_code != 200:
+                return Response(
+                    {"error": "Failed to fetch user info", "details": user_response.text},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+
+            try:
+                user_data = user_response.json()
+            except ValueError:
+                return Response(
+                    {"error": "Invalid JSON in user info response", "details": user_response.text},
+                    status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                )
+            
+            print("user data in the backend", user_data)
+
+            # Extract TikTok username and other user info
+            tiktok_info = {
+                'tiktok_username': user_data['data']['user'].get('username', ''),
+                'tiktok_display_name': user_data['data']['user'].get('display_name', ''),
+                'tiktok_avatar_url': user_data['data']['user'].get('avatar_url', ''),
+                'tiktok_follower_count': user_data['data']['user'].get('follower_count', ''),
+                'tiktok_video_count': user_data['data']['user'].get('video_count', ''),
+                'tiktok_likes_count': user_data['data']['user'].get('likes_count', ''),                    
+                'tiktok_open_id': open_id,
+                'tiktok_access_token': access_token,
+            }
+            
+            # Return the TikTok user info to the frontend
+            return Response({
+                "success": True,
+                "tiktok_info": tiktok_info
+            }, status=status.HTTP_200_OK)
+            
+        except requests.exceptions.RequestException as e:
+            return Response({"error": "Network error when connecting to TikTok", "details": str(e)}, 
+                          status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        except ValueError as e:
+            return Response({"error": "Invalid response from TikTok", "details": str(e)}, 
+                          status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+

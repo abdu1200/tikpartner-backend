@@ -9,13 +9,13 @@ admin.site.register(BrandProfile)
 
 
 
-class InfluencerProfileAdmin(admin.ModelAdmin):
-    list_display = ('user', 'tiktok_username', 'category', 'follower_count', 'verified_status')  # Fields to show in list view
-    search_fields = ('tiktok_username', 'user__username')  # Enable searching by username and tiktok username
-    list_filter = ('category', 'verified_status')  # Enable filtering
+# class InfluencerProfileAdmin(admin.ModelAdmin):
+#     list_display = ('user', 'tiktok_username', 'category', 'follower_count', 'verified_status')  # Fields to show in list view
+#     search_fields = ('tiktok_username', 'user__username')  # Enable searching by username and tiktok username
+#     list_filter = ('category', 'verified_status')  # Enable filtering
 
 
-admin.site.register(InfluencerProfile, InfluencerProfileAdmin)   # Register the model with InfluencerProfileAdmin
+# admin.site.register(InfluencerProfile, InfluencerProfileAdmin)   # Register the model with InfluencerProfileAdmin
 
 
 
