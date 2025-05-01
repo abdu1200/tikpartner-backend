@@ -39,7 +39,7 @@ class InfluencerProfileSerializer(serializers.ModelSerializer):
     class Meta:
         model = InfluencerProfile
         fields = [
-            'user', 'category', 'languages', 'budget',
+            'id', 'user', 'category', 'languages', 'budget',
             'tiktok_username', 'avatar_url', 'display_name',
             'follower_count', 'video_count', 'likes_count',
             'stripe_account_id'
@@ -141,7 +141,7 @@ class BrandProfileSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = BrandProfile
-        fields = ['user', 'category', 'company_name', 'website', 
+        fields = ['id', 'user', 'category', 'company_name', 'website', 
                   'company_size', 'verification_documents']
 
     
