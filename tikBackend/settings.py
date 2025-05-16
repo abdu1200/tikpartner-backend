@@ -78,12 +78,13 @@ INSTALLED_APPS = [
     'rest_framework_simplejwt',
     'corsheaders',
     'channels',
+    'uvicorn',
 ]
 
 MIDDLEWARE = [
+    'corsheaders.middleware.CorsMiddleware',
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
-    'corsheaders.middleware.CorsMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
@@ -113,9 +114,15 @@ TEMPLATES = [
 ASGI_APPLICATION = 'tikBackend.asgi.application'
 
 
+# Channel Layers - Use in-memory for development
+# CHANNEL_LAYERS = {
+#     'default': {
+#         'BACKEND': 'channels.layers.InMemoryChannelLayer',
+#     },
+# }
 
 
-# Configure Channels Layer (using Redis)   # Configuring django channels to use redis as a message broker
+#Configure Channel Layers for produuction (using Redis)   # Configuring django channels to use redis as a message broker
 CHANNEL_LAYERS = {
     "default": {
         "BACKEND": "channels_redis.core.RedisChannelLayer",
@@ -173,6 +180,13 @@ USE_TZ = True
 # Static files (CSS, JavaScript, Images)
 
 STATIC_URL = 'static/'
+STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')  # this is Where 'collectstatic' will put files
+
+# when you run 'python manage.py collectstatic', it will gather all the static files from your installed apps and place them in your STATIC_ROOT directory so they can be properly served.
+# so dependencies that got static files, for eg. 'rest_framework', its static files like css&js files for styling the rest_framework browsable api will be stored in the 'staticfiles' directory.
+# bad browsable api look = the CSS and JavaScript files that style the REST framework's browsable API are missing.
+# so the 404 errors indicate that your Django REST framework static files aren't being served properly, which is why your interface doesn't look as expected. 
+
 
 
 # Default primary key field type
@@ -193,12 +207,14 @@ REST_FRAMEWORK = {
 }
 
 SIMPLE_JWT = {
-    'AUTH_HEADER_TYPES': ('JWT',),
+    #'AUTH_HEADER_TYPES': ('JWT',),
     "ACCESS_TOKEN_LIFETIME": timedelta(hours=2),
     "REFRESH_TOKEN_LIFETIME": timedelta(days=3),
 }
 
 CORS_ALLOW_ALL_ORIGINS = True
+
+CORS_ALLOW_CREDENTIALS = True
 
 
 

@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Category, Language, InfluencerProfile, BrandProfile, Conversation, Contract, Deliverable, Payment, Review, Dispute
+from .models import Category, Language, InfluencerProfile, BrandProfile, Conversation, Message, Contract, Deliverable, Payment, Review, Dispute
 from custom.user_serializers import CustomUserSerializer 
 from custom.models import CustomUser
 
@@ -39,7 +39,7 @@ class InfluencerProfileSerializer(serializers.ModelSerializer):
     class Meta:
         model = InfluencerProfile
         fields = [
-            'id', 'user', 'category', 'languages', 'budget',
+            'id', 'user', 'category', 'gender', 'languages', 'budget',
             'tiktok_username', 'avatar_url', 'display_name',
             'follower_count', 'video_count', 'likes_count',
             'stripe_account_id'
@@ -204,20 +204,55 @@ class BrandProfileSerializer(serializers.ModelSerializer):
 
 
 class UserBasicSerializer(serializers.ModelSerializer):
+    avatar_url = serializers.SerializerMethodField()
+
     class Meta:
         model = CustomUser
-        fields = ['id', 'username']
+        fields = ['id', 'username', 'avatar_url']
+
+    def get_avatar_url(self, obj):
+        if hasattr(obj, 'influencer_profile') and obj.influencer_profile.avatar_url:
+            return obj.influencer_profile.avatar_url
+
+        if hasattr(obj, 'brand_profile') and obj.profile_picture:  
+            try:
+                return obj.profile_picture.url  #obj.profile_picture returns a Django ImageFieldFile object, but .url returns the actual URL string(MEDIA_URL)
+            except ValueError:
+                return None
+
+        return None
 
 class ConversationSerializer(serializers.ModelSerializer):
     participants = UserBasicSerializer(many=True, read_only=True)
+    latest_message = serializers.SerializerMethodField() # SerializerMethodField in Django REST Framework is inherently read-only
     
     class Meta:
         model = Conversation
-        fields = ['id', 'participants', 'created_at']
+        fields = ['id', 'participants', 'created_at', 'latest_message']
+
+    def get_latest_message(self, obj):    #to get the latest message in a given conversation
+        latest = obj.messages.order_by('-created_at').first()
+        if latest:
+            return {
+                'id': latest.id,
+                'content': latest.content,
+                'sender': latest.sender.id,
+                'sender_username': latest.sender.username,
+                'is_read': latest.is_read, 
+                'created_at': latest.created_at
+            }   
+        return None
 
 
 
 
+class MessageSerializer(serializers.ModelSerializer):
+    sender = serializers.StringRelatedField(read_only=True)  # returns sender.username
+
+    class Meta:
+        model = Message
+        fields = ['id', 'conversation', 'sender', 'content', 'attachments', 'is_read', 'created_at']
+        read_only_fields = ['sender', 'created_at', 'is_read']
 
 
 

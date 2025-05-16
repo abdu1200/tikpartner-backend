@@ -10,8 +10,8 @@ from rest_framework.exceptions import PermissionDenied
 from rest_framework.decorators import action
 from rest_framework import status
 from rest_framework.views import APIView
-from .models import Category, Language, InfluencerProfile, BrandProfile, Conversation, Contract, Deliverable, Payment, Review, Dispute
-from .serializers import CategorySerializer, LanguageSerializer, BrandProfileSerializer, InfluencerProfileSerializer, ConversationSerializer, ContractSerializer, ContractDetailSerializer, DeliverableSerializer, DeliverableDetailSerializer, PaymentSerializer, PaymentDetailSerializer, ReviewSerializer, DisputeSerializer
+from .models import Category, Language, InfluencerProfile, BrandProfile, Conversation, Message, Contract, Deliverable, Payment, Review, Dispute
+from .serializers import CategorySerializer, LanguageSerializer, BrandProfileSerializer, InfluencerProfileSerializer, ConversationSerializer, MessageSerializer, ContractSerializer, ContractDetailSerializer, DeliverableSerializer, DeliverableDetailSerializer, PaymentSerializer, PaymentDetailSerializer, ReviewSerializer, DisputeSerializer
 from .services.escrow_service import EscrowService
 from .services.stripe_escrow_service import StripeEscrowService
 import stripe
@@ -90,8 +90,8 @@ class BrandUserViewSet(ModelViewSet):
         elif self.action == 'me':
             return [IsAuthenticated()]
         elif self.action in ['list', 'update', 'partial_update', 'destroy']:
-            return [IsAdminUser()]
-        return [IsAuthenticated()]
+            return [AllowAny()]
+        return [AllowAny()]
 
     def destroy(self, request, *args, **kwargs):
         try:   #this is to delete the user when deleting its associated brand profile right away
@@ -220,9 +220,12 @@ class InfluencerStripeOnboardingView(APIView):
 # GET: Check onboarding progress.
 
 
+
+
 User = get_user_model()
 
 class ConversationViewSet(ModelViewSet):
+    #queryset = Conversation.objects.all()
     serializer_class = ConversationSerializer
     permission_classes = [IsAuthenticated]
     
@@ -234,6 +237,7 @@ class ConversationViewSet(ModelViewSet):
         if self.action in ['update', 'destroy']:
             return [IsAdminUser()]  # Only admins can update/delete a conversation
         return super().get_permissions()
+        
     
     def create(self, request):
         # Extracts the list of user IDs from the request data(users who are going to be in the conversation). If no participants are provided, it defaults to an empty list.
@@ -277,6 +281,35 @@ so in this case, the ConversationSerializer's job is only to convert an instance
 - Serializing is converting a dictionary to JSON for the response(to the client).
 
 """
+
+class MessageViewSet(ModelViewSet):
+    serializer_class = MessageSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        conversation_id = self.kwargs.get('conversation_pk')  # note: conversation_pk from nested router
+        conversation = Conversation.objects.filter(id=conversation_id, participants=self.request.user).first()
+        if not conversation:
+            return Message.objects.none()
+        return Message.objects.filter(conversation=conversation)
+
+
+    def perform_create(self, serializer):
+        conversation_id = self.kwargs.get('conversation_id')
+        conversation = Conversation.objects.get(id=conversation_id)
+
+        if self.request.user not in conversation.participants.all():
+            return Response({'error': 'Not a participant'}, status=status.HTTP_403_FORBIDDEN)
+
+        serializer.save(sender=self.request.user, conversation=conversation)
+
+    # def destroy(self, request, *args, **kwargs):
+    #     message = self.get_object()
+    #     if message.sender != request.user:
+    #         return Response({'error': 'You can only delete your own messages'}, status=status.HTTP_403_FORBIDDEN)
+    #     return super().destroy(request, *args, **kwargs)
+
+
 
 
 

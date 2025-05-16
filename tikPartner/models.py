@@ -21,8 +21,14 @@ class Language(models.Model):
 
 
 class InfluencerProfile(models.Model):
+    GENDER_CHOICES = [
+        ('male', 'Male'),
+        ('female', 'Female'),
+    ]
+    
     user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='influencer_profile')
     category = models.ForeignKey(Category, on_delete=models.SET_NULL, null=True, related_name='influencers')
+    gender = models.CharField(max_length=6, choices=GENDER_CHOICES, null=True, blank=True)
     languages = models.ManyToManyField(Language, related_name='influencers') 
     budget = models.CharField(max_length=30, blank=True)
     stripe_account_id = models.CharField(max_length=255, blank=True, null=True)

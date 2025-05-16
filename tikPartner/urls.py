@@ -1,6 +1,7 @@
 from django.urls import path, include
-from rest_framework.routers import DefaultRouter
-from .views import CategoryViewSet, LanguageViewSet, ConversationViewSet, ContractViewSet, DeliverableViewSet, PaymentViewSet, InfluencerStripeOnboardingView, ReviewViewSet, TikTokAuthView
+#from rest_framework.routers import DefaultRouter
+from rest_framework_nested.routers import DefaultRouter, NestedDefaultRouter
+from .views import CategoryViewSet, LanguageViewSet, ConversationViewSet, MessageViewSet, ContractViewSet, DeliverableViewSet, PaymentViewSet, InfluencerStripeOnboardingView, ReviewViewSet, TikTokAuthView
 from drf_yasg.views import get_schema_view
 from drf_yasg import openapi
 
@@ -12,6 +13,11 @@ router.register(r'contracts', ContractViewSet, basename='contract')
 router.register(r'deliverables', DeliverableViewSet, basename='deliverable')
 router.register(r'payments', PaymentViewSet, basename='payment')
 router.register(r'reviews', ReviewViewSet, basename='review')
+
+
+# GET /conversations/1/messages/   GET /conversations/1/messages/5/    DELETE /conversations/1/messages/5/  
+conversation_router = NestedDefaultRouter(router, r'conversations', lookup='conversation')
+conversation_router.register(r'messages', MessageViewSet, basename='conversation-messages')
 
 
 
@@ -31,6 +37,7 @@ schema_view = get_schema_view(
 
 urlpatterns = [
     path('', include(router.urls)),
+    path('', include(conversation_router.urls)),
     path('docs/', schema_view.as_view(), name='api-docs'),
     path('auth/tiktok/', TikTokAuthView.as_view(), name='tiktok-auth'),
     path('influencers/stripe-onboarding/', InfluencerStripeOnboardingView.as_view(), name='stripe-onboarding'),

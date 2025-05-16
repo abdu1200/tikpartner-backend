@@ -8,15 +8,22 @@ django_asgi_app = get_asgi_application()
 
 #now you can use app's functionalities(like models, routing) and also package's(like ProtocolTypeRouter)
 from channels.routing import ProtocolTypeRouter, URLRouter
-from channels.auth import AuthMiddlewareStack
-from tikPartner import routing as app_routing
+#from channels.auth import AuthMiddlewareStack
+from tikPartner.middleware import TokenAuthMiddleware  # Import your custom middleware instead of AuthMiddlwareStack
+from tikPartner.routing import websocket_urlpatterns
+from channels.security.websocket import AllowedHostsOriginValidator
+# when we make an http request, AuthMiddlewareStack allows us to authenticate a user using its JWT token from the authorization header of the request.
+# when we make WebSocket connection, TokenAuthMiddleware allows us to authenticate a user using its JWT token from the websocketURL.
+# so when we make a websocket connection, this middleware will extract the token from the WebSocket URL query parameters and authenticate the user accordingly.
 
 
 application = ProtocolTypeRouter({       # ASGI application entry point 
     "http": django_asgi_app,             # Handle HTTP requests
-    "websocket": AuthMiddlewareStack(    # Handle WebSockets requests
-        URLRouter(
-            app_routing.websocket_urlpatterns
+    "websocket": AllowedHostsOriginValidator(
+        TokenAuthMiddleware(
+            URLRouter(
+                websocket_urlpatterns
+            )
         )
     ),
 })
