@@ -1,7 +1,7 @@
 from django.urls import path, include
 #from rest_framework.routers import DefaultRouter
 from rest_framework_nested.routers import DefaultRouter, NestedDefaultRouter
-from .views import CategoryViewSet, LanguageViewSet, ConversationViewSet, MessageViewSet, ContractViewSet, DeliverableViewSet, PaymentViewSet, InfluencerStripeOnboardingView, ReviewViewSet, TikTokAuthView
+from .views import CategoryViewSet, LanguageViewSet, ConversationViewSet, MessageViewSet, ContractViewSet, RequestedOffersViewSet, DeliverableViewSet, PaymentViewSet, InfluencerStripeOnboardingView, ReviewViewSet, TikTokAuthView
 from drf_yasg.views import get_schema_view
 from drf_yasg import openapi
 
@@ -10,6 +10,7 @@ router.register(r'categories', CategoryViewSet, basename='category')
 router.register(r'languages', LanguageViewSet, basename='language')
 router.register(r'conversations', ConversationViewSet, basename='conversation')
 router.register(r'contracts', ContractViewSet, basename='contract')
+router.register(r'requested_offers', RequestedOffersViewSet, basename='requested_offer')
 router.register(r'deliverables', DeliverableViewSet, basename='deliverable')
 router.register(r'payments', PaymentViewSet, basename='payment')
 router.register(r'reviews', ReviewViewSet, basename='review')

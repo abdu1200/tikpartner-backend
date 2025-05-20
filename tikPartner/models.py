@@ -90,12 +90,11 @@ class Message(models.Model):
 class Contract(models.Model):
     brand = models.ForeignKey(BrandProfile, on_delete=models.CASCADE, related_name='contracts')
     influencer = models.ForeignKey(InfluencerProfile, on_delete=models.CASCADE, related_name='contracts')
-    terms = models.TextField()
+    title = models.CharField(max_length=255)
     is_signed_by_influencer = models.BooleanField(default=False)
     influencer_signed_at = models.DateTimeField(null=True, blank=True)
     is_signed_by_brand = models.BooleanField(default=False)
     brand_signed_at = models.DateTimeField(null=True, blank=True)
-
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -114,7 +113,7 @@ class Deliverable(models.Model):
         ('approved', 'Approved'),
     )
 
-    contract = models.ForeignKey(Contract, on_delete=models.CASCADE, related_name='deliverables')
+    contract = models.OneToOneField(Contract, on_delete=models.CASCADE, related_name='deliverable') # a contract can only have one deliverable
     title = models.CharField(max_length=255)
     description = models.TextField(blank=True)
     content_url = models.URLField(blank=True)

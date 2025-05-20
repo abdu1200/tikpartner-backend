@@ -15,6 +15,7 @@ from channels.security.websocket import AllowedHostsOriginValidator
 # when we make an http request, AuthMiddlewareStack allows us to authenticate a user using its JWT token from the authorization header of the request.
 # when we make WebSocket connection, TokenAuthMiddleware allows us to authenticate a user using its JWT token from the websocketURL.
 # so when we make a websocket connection, this middleware will extract the token from the WebSocket URL query parameters and authenticate the user accordingly.
+# so it ensures only authenticated users can connect to WebSockets. Bcuz without it, any user (even unauthenticated) could send messages.
 
 
 application = ProtocolTypeRouter({       # ASGI application entry point 
@@ -34,9 +35,6 @@ application = ProtocolTypeRouter({       # ASGI application entry point
 - ProtocolTypeRouter is used to give both HTTP and WebSocket support to the project.
 - If the project only handles HTTP, the default get_asgi_application() is enough, like the one is the wsgi.py
 
-- AuthMiddlewareStack is used if you need authentication for WebSocket connections (e.g., checking logged-in users).
-- Without it, WebSocket requests won’t have access to Django’s authentication system.
-so it ensures only authenticated users can connect to WebSockets. Without it, any user (even unauthenticated) could send messages.
 """
 
 

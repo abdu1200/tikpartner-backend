@@ -202,7 +202,7 @@ class BrandProfileSerializer(serializers.ModelSerializer):
 
 
 
-
+# CONVERSATION AND MESSAGE
 class UserBasicSerializer(serializers.ModelSerializer):
     avatar_url = serializers.SerializerMethodField()
 
@@ -256,6 +256,9 @@ class MessageSerializer(serializers.ModelSerializer):
 
 
 
+
+
+## CONTRACT
 class ContractSerializer(serializers.ModelSerializer):
     class Meta:
         model = Contract
@@ -265,7 +268,7 @@ class ContractSerializer(serializers.ModelSerializer):
 
 class ContractDetailSerializer(serializers.ModelSerializer):
     brand_name = serializers.ReadOnlyField(source='brand.company_name')   #a custom field #it is the 'company_name' property of the related 'brand' object/field
-    influencer_name = serializers.ReadOnlyField(source='influencer.tiktok_username')  #a custom field #it is the 'tiktok_username' property of the related 'influencer' object/field
+    influencer_name = serializers.ReadOnlyField(source='influencer.display_name')  #a custom field #it is the 'tiktok_username' property of the related 'influencer' object/field
     
     class Meta:
         model = Contract
@@ -273,11 +276,87 @@ class ContractDetailSerializer(serializers.ModelSerializer):
         read_only_fields = ('created_at', 'updated_at')
 
 
+class ContractCreateSerializer(serializers.ModelSerializer):
+    payment_amount = serializers.DecimalField(max_digits=10, decimal_places=2, write_only=True)
+    deliverable_title = serializers.CharField(write_only=True)
+    deliverable_description = serializers.CharField(write_only=True, allow_blank=True, required=False)
+    deliverable_deadline = serializers.DateTimeField(write_only=True)
+
+
+    class Meta:
+        model = Contract
+        fields = [
+            'brand',
+            'influencer',
+            'title',
+            'is_signed_by_influencer',
+            'influencer_signed_at',
+            'is_signed_by_brand',
+            'brand_signed_at',
+            'payment_amount',
+            'deliverable_title',
+            'deliverable_description',
+            'deliverable_deadline',
+        ]
+
+    def create(self, validated_data):
+        payment_amount = validated_data.pop('payment_amount')
+        deliverable_title = validated_data.pop('deliverable_title')
+        deliverable_description = validated_data.pop('deliverable_description')
+        deliverable_deadline = validated_data.pop('deliverable_deadline')
+
+        contract = Contract.objects.create(**validated_data)
+
+        Payment.objects.create(contract=contract, amount=payment_amount)
+        Deliverable.objects.create(contract=contract, title=deliverable_title, description=deliverable_description, deadline=deliverable_deadline)
+
+        return contract
+
+
+
+class ContractOfferSerializer(serializers.ModelSerializer):
+    brand_name = serializers.ReadOnlyField(source='brand.company_name')
+    influencer_name = serializers.ReadOnlyField(source='influencer.display_name')
+    payment_amount = serializers.SerializerMethodField()
+    deliverable_title = serializers.SerializerMethodField()
+    deliverable_description = serializers.SerializerMethodField()
+    deliverable_deadline = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Contract
+        fields = [
+            'id',
+            'brand',
+            'brand_name',
+            'influencer',
+            'influencer_name',
+            'title',
+            'is_signed_by_influencer',
+            'influencer_signed_at',
+            'is_signed_by_brand',
+            'brand_signed_at',
+            'payment_amount',
+            'deliverable_title',
+            'deliverable_description',
+            'deliverable_deadline',
+        ]
+
+    def get_payment_amount(self, obj):
+        return getattr(obj.payment, 'amount', None)   # contract.payment.amount  through reverse r/n ship
+
+    def get_deliverable_title(self, obj):
+        return getattr(obj.deliverable, 'title', '')
+
+    def get_deliverable_description(self, obj):
+        return getattr(obj.deliverable, 'description', '')
+
+    def get_deliverable_deadline(self, obj):
+        return getattr(obj.deliverable, 'deadline', None)
 
 
 
 
-
+## deliverable
 class DeliverableSerializer(serializers.ModelSerializer):
     class Meta:
         model = Deliverable

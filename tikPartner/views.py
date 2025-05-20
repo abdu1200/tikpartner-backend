@@ -11,7 +11,7 @@ from rest_framework.decorators import action
 from rest_framework import status
 from rest_framework.views import APIView
 from .models import Category, Language, InfluencerProfile, BrandProfile, Conversation, Message, Contract, Deliverable, Payment, Review, Dispute
-from .serializers import CategorySerializer, LanguageSerializer, BrandProfileSerializer, InfluencerProfileSerializer, ConversationSerializer, MessageSerializer, ContractSerializer, ContractDetailSerializer, DeliverableSerializer, DeliverableDetailSerializer, PaymentSerializer, PaymentDetailSerializer, ReviewSerializer, DisputeSerializer
+from .serializers import CategorySerializer, LanguageSerializer, BrandProfileSerializer, InfluencerProfileSerializer, ConversationSerializer, MessageSerializer, ContractSerializer, ContractDetailSerializer, ContractCreateSerializer, ContractOfferSerializer, DeliverableSerializer, DeliverableDetailSerializer, PaymentSerializer, PaymentDetailSerializer, ReviewSerializer, DisputeSerializer
 from .services.escrow_service import EscrowService
 from .services.stripe_escrow_service import StripeEscrowService
 import stripe
@@ -313,7 +313,7 @@ class MessageViewSet(ModelViewSet):
 
 
 
-
+#### CONTRACT VIEW SET
 class ContractViewSet(ModelViewSet):     #a viewset that handles all CRUD operations (Create, Read, Update, Delete)  #a viewset handles the http requests
     queryset = Contract.objects.all()           #The default queryset includes all Contract objects
     serializer_class = ContractSerializer       #The default serializer is the basic ContractSerializer
@@ -321,6 +321,8 @@ class ContractViewSet(ModelViewSet):     #a viewset that handles all CRUD operat
     def get_serializer_class(self):             #This method dynamically selects a serializer based on an action
         if self.action == 'retrieve':           #for viewing/retrieving a single contract
             return ContractDetailSerializer
+        elif self.action == 'create':
+            return ContractCreateSerializer     #for creating a contract
         return ContractSerializer
     
     def get_queryset(self):                     #This method filters the queryset based on the current user
@@ -331,6 +333,14 @@ class ContractViewSet(ModelViewSet):     #a viewset that handles all CRUD operat
         elif hasattr(user, 'influencer_profile'):
             return Contract.objects.filter(influencer=user.influencer_profile)
         return Contract.objects.none()
+
+    
+    def create(self, request, *args, **kwargs):
+        serializer = ContractCreateSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        contract = serializer.save()
+        return Response(ContractDetailSerializer(contract).data, status=status.HTTP_201_CREATED)
+
     
     @action(detail=True, methods=['post'])    #api/contracts/{id}/sign_contract/
     def sign_contract(self, request, pk=None):
@@ -352,9 +362,32 @@ class ContractViewSet(ModelViewSet):     #a viewset that handles all CRUD operat
 
 
 
+# REQUESTED OFFERS VIEW SET
+class RequestedOffersViewSet(ModelViewSet):
+    serializer_class = ContractOfferSerializer
+    #permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        user = self.request.user
+
+        if hasattr(user, 'brand_profile'):
+            return Contract.objects.filter(
+                brand=user.brand_profile,
+                is_signed_by_brand=True,
+                is_signed_by_influencer=False
+            )
+        elif hasattr(user, 'influencer_profile'):
+            return Contract.objects.filter(
+                influencer=user.influencer_profile,
+                is_signed_by_brand=True,
+                is_signed_by_influencer=False
+            )
+        return Contract.objects.none()
 
 
 
+
+# DELIVERABLE VIEW SET
 class DeliverableViewSet(ModelViewSet):
     queryset = Deliverable.objects.all()
     serializer_class = DeliverableSerializer

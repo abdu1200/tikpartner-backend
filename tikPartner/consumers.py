@@ -22,7 +22,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
         self.user = self.scope["user"]    #- self.scope["user"] refers to the current user making the WebSocket connection request. It's similar to how the user is retrieved in Django views but in the context of WebSocket connections.
         print("user:", self.user)
 
-        # here it checks if the user is authenticated using django's authentication system
+        # here it checks if the user is authenticated
         if self.user.is_anonymous:
             print('user is anonymous')
             # Reject the connection if user is not authenticated
