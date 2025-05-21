@@ -18,7 +18,7 @@ class StripeEscrowService:
         # Convert to cents for Stripe
         amount_cents = int(payment.amount * 100)
         
-        # Create/generate a payment intent in Stripe
+        # Create/generate a payment intent in Stripe(in our platform's stripe account or in our stripe)
         intent = stripe.PaymentIntent.create(
             amount=amount_cents,      #tells Stripe how much to charge the brand
             currency='usd',           #in what currency

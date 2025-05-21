@@ -318,6 +318,7 @@ class ContractOfferSerializer(serializers.ModelSerializer):
     brand_name = serializers.ReadOnlyField(source='brand.company_name')
     influencer_name = serializers.ReadOnlyField(source='influencer.display_name')
     payment_amount = serializers.SerializerMethodField()
+    payment_id = serializers.SerializerMethodField()
     deliverable_title = serializers.SerializerMethodField()
     deliverable_description = serializers.SerializerMethodField()
     deliverable_deadline = serializers.SerializerMethodField()
@@ -336,6 +337,7 @@ class ContractOfferSerializer(serializers.ModelSerializer):
             'is_signed_by_brand',
             'brand_signed_at',
             'payment_amount',
+            'payment_id',
             'deliverable_title',
             'deliverable_description',
             'deliverable_deadline',
@@ -343,6 +345,9 @@ class ContractOfferSerializer(serializers.ModelSerializer):
 
     def get_payment_amount(self, obj):
         return getattr(obj.payment, 'amount', None)   # contract.payment.amount  through reverse r/n ship
+
+    def get_payment_id(self, obj):
+        return getattr(obj.payment, 'id', None)
 
     def get_deliverable_title(self, obj):
         return getattr(obj.deliverable, 'title', '')
@@ -389,7 +394,7 @@ class PaymentSerializer(serializers.ModelSerializer):
 
 class PaymentDetailSerializer(serializers.ModelSerializer):
     brand_name = serializers.ReadOnlyField(source='contract.brand.company_name')     # in the source, you can reference a field of the given model(so like contract.brand...) 
-    influencer_name = serializers.ReadOnlyField(source='contract.influencer.tiktok_username')
+    influencer_name = serializers.ReadOnlyField(source='contract.influencer.display_name')
     
     class Meta:
         model = Payment

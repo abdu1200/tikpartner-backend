@@ -386,8 +386,58 @@ class RequestedOffersViewSet(ModelViewSet):
 
 
 
+class AcceptedOffersViewSet(ModelViewSet):
+    serializer_class = ContractOfferSerializer
+    #permission_classes = [IsAuthenticated]
 
-# DELIVERABLE VIEW SET
+    def get_queryset(self):
+        user = self.request.user
+
+        if hasattr(user, 'brand_profile'):
+            return Contract.objects.filter(
+                brand=user.brand_profile,
+                is_signed_by_brand=True,
+                is_signed_by_influencer=True,
+                payment__status='pending'
+            )
+        elif hasattr(user, 'influencer_profile'):
+            return Contract.objects.filter(
+                influencer=user.influencer_profile,
+                is_signed_by_brand=True,
+                is_signed_by_influencer=True,
+                payment__status='pending'
+            )
+        return Contract.objects.none()
+
+
+class ActiveContractsViewSet(ModelViewSet):
+    serializer_class = ContractOfferSerializer
+    #permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        user = self.request.user
+
+        if hasattr(user, 'brand_profile'):
+            return Contract.objects.filter(
+                brand=user.brand_profile,
+                is_signed_by_brand=True,
+                is_signed_by_influencer=True,
+                payment__status='in_escrow'
+            )
+        elif hasattr(user, 'influencer_profile'):
+            return Contract.objects.filter(
+                influencer=user.influencer_profile,
+                is_signed_by_brand=True,
+                is_signed_by_influencer=True,
+                payment__status='in_escrow'
+            )
+        return Contract.objects.none()
+
+
+
+
+
+#### DELIVERABLE VIEW SET
 class DeliverableViewSet(ModelViewSet):
     queryset = Deliverable.objects.all()
     serializer_class = DeliverableSerializer

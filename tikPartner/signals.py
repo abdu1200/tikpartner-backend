@@ -101,7 +101,7 @@ def notify_payment_status_change(sender, instance, created, **kwargs):
         
     # compare the old payment status with the new one
     if old_status == instance.status:           # instance.status is the new (current) payment status.
-        return
+        return                                # return b/c the changed field is not the 'status' but it is one of the fields of the payment instance 
     
     # Get the related informations
     contract = instance.contract   
@@ -113,11 +113,21 @@ def notify_payment_status_change(sender, instance, created, **kwargs):
         # Notify influencer that funds are in escrow
         send_mail(
             subject="Payment is Secured in Escrow",
-            message=f"Hello {influencer.user.first_name},\n\nGood news! ${instance.amount} has been placed in escrow for contract #{contract.id} by {brand.user.first_name}.\n\nThe funds will be released to you once all deliverables are approved.\n\nThank you for using our platform!",
+            message=f"Hello {influencer.user.first_name} from '{influencer.display_name}',\n\nGood news! ${instance.amount} has been placed in escrow for contract: '{contract.title}' by {brand.user.first_name} from '{brand.company_name}'.\n\nThe funds will be released to you once all deliverables are approved.\n\nThank you for using our platform!",
             from_email=settings.EMAIL_HOST_USER,
             recipient_list=[influencer.user.email],
             fail_silently=False,
         )
+
+        # Also notify brand
+        send_mail(
+            subject="Payment is Secured in Escrow",
+            message=f"Hello {brand.user.first_name} (from '{brand.company_name}'),\n\nYou have successfully placed ${instance.amount} in escrow for contract: '{contract.title}' to influencer: {influencer.user.first_name} (from '{influencer.display_name}').\n\nThe funds will be released to the influencer once all deliverables are approved.\n\nThank you for using our platform!",
+            from_email=settings.EMAIL_HOST_USER,
+            recipient_list=[brand.user.email],
+            fail_silently=False,
+        )
+
         
     elif instance.status == 'released':
         # Calculate the amount after platform fee
