@@ -2,6 +2,7 @@ from django.db import models
 from django.contrib.auth.models import AbstractUser  #not needed here
 from django.conf import settings
 from django.core.validators import MinValueValidator, MaxValueValidator
+from cloudinary.models import CloudinaryField
 
 # Create your models here.
 
@@ -116,8 +117,6 @@ class Deliverable(models.Model):
     contract = models.OneToOneField(Contract, on_delete=models.CASCADE, related_name='deliverable') # a contract can only have one deliverable
     title = models.CharField(max_length=255)
     description = models.TextField(blank=True)
-    content_url = models.URLField(blank=True)
-    content_file = models.FileField(upload_to='deliverables/', blank=True, null=True)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
     feedback = models.TextField(blank=True)
     deadline = models.DateTimeField(null=True, blank=True)
@@ -125,6 +124,16 @@ class Deliverable(models.Model):
 
     def __str__(self):
         return f"Deliverable: {self.title}"
+
+
+class DeliverableAttachment(models.Model):
+    deliverable = models.ForeignKey('Deliverable', on_delete=models.CASCADE, related_name='attachments')
+    file = CloudinaryField('file', blank=True, null=True)
+    original_filename = models.CharField(max_length=255, blank=True, null=True)
+    url = models.URLField(blank=True)
+
+    def __str__(self):
+        return f"Attachment for {self.deliverable.title}"
 
 
 

@@ -10,8 +10,8 @@ from rest_framework.exceptions import PermissionDenied
 from rest_framework.decorators import action
 from rest_framework import status
 from rest_framework.views import APIView
-from .models import Category, Language, InfluencerProfile, BrandProfile, Conversation, Message, Contract, Deliverable, Payment, Review, Dispute
-from .serializers import CategorySerializer, LanguageSerializer, BrandProfileSerializer, InfluencerProfileSerializer, ConversationSerializer, MessageSerializer, ContractSerializer, ContractDetailSerializer, ContractCreateSerializer, ContractOfferSerializer, DeliverableSerializer, DeliverableDetailSerializer, PaymentSerializer, PaymentDetailSerializer, ReviewSerializer, DisputeSerializer
+from .models import Category, Language, InfluencerProfile, BrandProfile, Conversation, Message, Contract, Deliverable, DeliverableAttachment, Payment, Review, Dispute
+from .serializers import CategorySerializer, LanguageSerializer, BrandProfileSerializer, InfluencerProfileSerializer, ConversationSerializer, MessageSerializer, ContractSerializer, ContractDetailSerializer, ContractCreateSerializer, ContractOfferSerializer, DeliverableSerializer, DeliverableDetailSerializer, SubmitDeliverableSerializer, PaymentSerializer, PaymentDetailSerializer, ReviewSerializer, DisputeSerializer
 from .services.escrow_service import EscrowService
 from .services.stripe_escrow_service import StripeEscrowService
 import stripe
@@ -434,6 +434,32 @@ class ActiveContractsViewSet(ModelViewSet):
         return Contract.objects.none()
 
 
+class ApproveWorksViewSet(ModelViewSet):
+    serializer_class = ContractOfferSerializer
+    #permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        user = self.request.user
+
+        if hasattr(user, 'brand_profile'):
+            return Contract.objects.filter(
+                brand=user.brand_profile,
+                is_signed_by_brand=True,
+                is_signed_by_influencer=True,
+                payment__status='in_escrow',
+                deliverable__status='submitted',
+            )
+        elif hasattr(user, 'influencer_profile'):
+            return Contract.objects.filter(
+                influencer=user.influencer_profile,
+                is_signed_by_brand=True,
+                is_signed_by_influencer=True,
+                payment__status='in_escrow',
+                deliverable__status='submitted',
+            )
+        return Contract.objects.none()
+
+
 
 
 
@@ -457,36 +483,65 @@ class DeliverableViewSet(ModelViewSet):
         return Deliverable.objects.none()
     
     @action(detail=True, methods=['post'])
-    def submit(self, request, pk=None):
+    def submit_attachments(self, request, pk=None):
         deliverable = self.get_object()   #deliverable is the current instance
         user = request.user
-        
-        if not hasattr(user, 'influencer_profile') or user.influencer_profile != deliverable.contract.influencer:  #the latter one is comparing two objects
-            return Response({"error": "Only the influencer can submit deliverables"}, 
+
+        if not hasattr(user, 'influencer_profile') or user.influencer_profile != deliverable.contract.influencer:
+            return Response({"error": "Only the assigned influencer can submit this deliverable."},
                             status=status.HTTP_403_FORBIDDEN)
-        
+
         # user.influencer_profile is the influencer profile of the user making the request
         # deliverable.contract.influencer is the influencer profile associated with the deliverable's contract
         # the right above 'if check' ensures that the user is not just any influencer, but specifically the influencer that owns the contract associated with this deliverable. This prevents one influencer from accessing or modifying another influencer's payments.
-        
 
-        
-        # Update content_url if provided
-        content_url = request.data.get('content_url')
-        if content_url:
-            deliverable.content_url = content_url
-        
-        # Handle file upload if provided
-        content_file = request.FILES.get('content_file')
-        if content_file:
-            deliverable.content_file = content_file
-        
+        serializer = SubmitDeliverableSerializer(data=request.data)   # when this is called, in the serializr, first it does field level validation(like content_files) then it does custom validation(validate method) 
+        serializer.is_valid(raise_exception=True)
+        validated_data = serializer.validated_data
+
+        # Handle URLs
+        for url in validated_data.get('content_urls', []):
+            DeliverableAttachment.objects.create(
+                deliverable=deliverable,
+                url=url
+            )
+
+        # Handle files
+        for file in validated_data.get('content_files', []):
+            DeliverableAttachment.objects.create(
+                deliverable=deliverable,
+                file=file,
+                original_filename=file.name  # Store the original filename
+            )
+
         deliverable.status = 'submitted'
         deliverable.submitted_at = timezone.now()
         deliverable.save()
-        
-        return Response(DeliverableDetailSerializer(deliverable).data)
+
+        return Response(DeliverableDetailSerializer(deliverable).data, status=status.HTTP_200_OK)
     
+
+    @action(detail=True, methods=['put'])
+    def update_attachments(self, request, pk=None):
+        deliverable = self.get_object()
+
+        serializer = SubmitDeliverableSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        validated_data = serializer.validated_data
+
+        # Clear old attachments
+        deliverable.attachments.all().delete()
+
+        for url in validated_data.get('content_urls', []):
+            DeliverableAttachment.objects.create(deliverable=deliverable, url=url)
+
+        for file in validated_data.get('content_files', []):
+            DeliverableAttachment.objects.create(deliverable=deliverable, file=file)
+
+        return Response(DeliverableDetailSerializer(deliverable).data, status=status.HTTP_200_OK)
+
+
+
     @action(detail=True, methods=['post'])
     def review(self, request, pk=None):
         deliverable = self.get_object()

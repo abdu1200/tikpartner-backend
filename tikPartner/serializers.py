@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Category, Language, InfluencerProfile, BrandProfile, Conversation, Message, Contract, Deliverable, Payment, Review, Dispute
+from .models import Category, Language, InfluencerProfile, BrandProfile, Conversation, Message, Contract, Deliverable, DeliverableAttachment, Payment, Review, Dispute
 from custom.user_serializers import CustomUserSerializer 
 from custom.models import CustomUser
 
@@ -319,9 +319,12 @@ class ContractOfferSerializer(serializers.ModelSerializer):
     influencer_name = serializers.ReadOnlyField(source='influencer.display_name')
     payment_amount = serializers.SerializerMethodField()
     payment_id = serializers.SerializerMethodField()
+    deliverable_id = serializers.SerializerMethodField()
     deliverable_title = serializers.SerializerMethodField()
     deliverable_description = serializers.SerializerMethodField()
     deliverable_deadline = serializers.SerializerMethodField()
+    deliverable_submitted_at = serializers.SerializerMethodField()
+
 
     class Meta:
         model = Contract
@@ -338,9 +341,11 @@ class ContractOfferSerializer(serializers.ModelSerializer):
             'brand_signed_at',
             'payment_amount',
             'payment_id',
+            'deliverable_id',
             'deliverable_title',
             'deliverable_description',
             'deliverable_deadline',
+            'deliverable_submitted_at',
         ]
 
     def get_payment_amount(self, obj):
@@ -348,6 +353,9 @@ class ContractOfferSerializer(serializers.ModelSerializer):
 
     def get_payment_id(self, obj):
         return getattr(obj.payment, 'id', None)
+
+    def get_deliverable_id(self, obj):
+        return getattr(obj.deliverable, 'id', '')
 
     def get_deliverable_title(self, obj):
         return getattr(obj.deliverable, 'title', '')
@@ -357,6 +365,9 @@ class ContractOfferSerializer(serializers.ModelSerializer):
 
     def get_deliverable_deadline(self, obj):
         return getattr(obj.deliverable, 'deadline', None)
+    
+    def get_deliverable_submitted_at(self, obj):
+        return getattr(obj.deliverable, 'submitted_at', '')
 
 
 
@@ -369,10 +380,17 @@ class DeliverableSerializer(serializers.ModelSerializer):
         read_only_fields = ('submitted_at',)
 
 
+class DeliverableAttachmentSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = DeliverableAttachment
+        fields = ('id', 'file', 'original_filename', 'url')
+
+
 class DeliverableDetailSerializer(serializers.ModelSerializer):
     brand_name = serializers.ReadOnlyField(source='contract.brand.company_name')
-    influencer_name = serializers.ReadOnlyField(source='contract.influencer.tiktok_username')
-    
+    influencer_name = serializers.ReadOnlyField(source='contract.influencer.display_name')
+    attachments = DeliverableAttachmentSerializer(many=True, read_only=True)  # related_name='attachments'
+
     class Meta:
         model = Deliverable
         fields = '__all__'
@@ -380,11 +398,30 @@ class DeliverableDetailSerializer(serializers.ModelSerializer):
 
 
 
+class SubmitDeliverableSerializer(serializers.Serializer):
+    # content_files and content_urls are serializer fields, but they're not from a model. # content_files is a serializer ListField where its children must be FileFields
+    content_files = serializers.ListField(     
+        child=serializers.FileField(),
+        required=False
+    )
+    content_urls = serializers.ListField(
+        child=serializers.URLField(),
+        required=False
+    )
+
+    # custom validation
+    def validate(self, data):
+        if not data.get('content_files') and not data.get('content_urls'):
+            raise serializers.ValidationError("At least one file or URL must be provided.")
+        return data
+
+
+# a non model serializer(like above) isn't for creating(via create) or updating(via update) a model instance. it's just used for a custom logic, or for validating incoming data or for formatting a data that is to be returned. 
+# so for this kind of case, you manually handle saving or updaing model instances inside the view(not automatically via seralizer.save())
 
 
 
-
-
+## Payment
 class PaymentSerializer(serializers.ModelSerializer):
     class Meta:
         model = Payment

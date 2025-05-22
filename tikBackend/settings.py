@@ -18,6 +18,11 @@ and docker will use them to install packages inside a container
 from pathlib import Path
 import os
 from datetime import timedelta
+import cloudinary
+import cloudinary.uploader
+import cloudinary.api
+# import cloudinary_storage
+
 
                                      
                      ######  
@@ -79,6 +84,8 @@ INSTALLED_APPS = [
     'corsheaders',
     'channels',
     'uvicorn',
+    'cloudinary',
+    'cloudinary_storage',
 ]
 
 MIDDLEWARE = [
@@ -240,11 +247,24 @@ STRIPE_PUBLISHABLE_KEY = 'pk_test_51PPN5NRt8NVEmh7T5gwdm6cP4qAfXlKy8pwcMiEb4NtuB
 
 
 
-
-
-
 TIKTOK_CLIENT_KEY = 'sbaweuralgopknrhuo'
 TIKTOK_CLIENT_SECRET = 'Kr3WE2CbqjhID2gsDoty7DpMEGT3wA05'
 TIKTOK_REDIRECT_URI = 'https://tikfrontend-latest.onrender.com/InfluencerSignup'
 
 
+
+# Cloudinary credentials
+# CLOUDINARY_STORAGE = {
+#     'CLOUD_NAME': 'dbahlieut',
+#     'API_KEY': '853862792599424',
+#     'API_SECRET': 'J7yRB_qkLa-kOXZ_gSEA9V-k27s',
+# }
+
+# DEFAULT_FILE_STORAGE = 'cloudinary_storage.storage.MediaCloudinaryStorage'
+
+
+cloudinary.config(
+    cloud_name="dbahlieut",
+    api_key="853862792599424",
+    api_secret="J7yRB_qkLa-kOXZ_gSEA9V-k27s",
+)
