@@ -64,7 +64,7 @@ class StripeEscrowService:
         payment = Payment.objects.get(id=payment_id)
         
         # First check if payment can be released
-        EscrowService.can_release_payment(payment_id)
+        #EscrowService.can_release_payment(payment_id)
         
         # Get the influencer's Stripe account ID
         influencer_stripe_account = payment.contract.influencer.stripe_account_id
@@ -92,7 +92,7 @@ class StripeEscrowService:
         )
 
         # line 86: It links the brand's payment (to the platform's Stripe account) with the transfer (from the platform’s Stripe account to the influencer's connected account).
-        # Line 86: It creates a clear relationship between the original deposit and the payout to the influencer.
+        # Line 86: It creates a clear relationship between the original deposit and the transfer(payout) to the influencer.
         
         # Update payment status and add transfer details in the db
         payment = EscrowService.release_payment(payment_id)

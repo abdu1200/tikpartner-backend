@@ -536,7 +536,7 @@ class DeliverableViewSet(ModelViewSet):
             DeliverableAttachment.objects.create(deliverable=deliverable, url=url)
 
         for file in validated_data.get('content_files', []):
-            DeliverableAttachment.objects.create(deliverable=deliverable, file=file)
+            DeliverableAttachment.objects.create(deliverable=deliverable, file=file, original_filename=file.name)
 
         return Response(DeliverableDetailSerializer(deliverable).data, status=status.HTTP_200_OK)
 

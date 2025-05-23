@@ -34,11 +34,15 @@ class EscrowService:
         if payment.status != 'in_escrow':
             raise ValueError(f"Payment must be in 'in_escrow' status to be released. Current status: {payment.status}")
         
-        # Add extra validation: Check if all deliverables are approved
-        deliverables = Deliverable.objects.filter(contract=payment.contract)
-        if deliverables.exists() and not all(d.status == 'approved' for d in deliverables):
-            raise ValueError("Cannot release payment - not all deliverables have been approved")
-        
+        # Add extra validation: Check if the deliverable is approved and has at least one attachment
+        deliverable = payment.contract.deliverable
+
+        if deliverable.status != 'approved':
+            raise ValueError("Cannot release payment - the deliverable is not approved")
+
+        if not deliverable.attachments.exists():
+            raise ValueError("Cannot release payment - the deliverable has no attachments")
+
         return True
     
     
@@ -49,7 +53,7 @@ class EscrowService:
         payment = Payment.objects.select_for_update().get(id=payment_id)
         
         # First verify that payment can be released
-        EscrowService.can_release_payment(payment_id)
+        #EscrowService.can_release_payment(payment_id)
         
         payment.status = 'released'
         payment.updated_at = timezone.now()

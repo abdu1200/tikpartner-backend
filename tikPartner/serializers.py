@@ -324,6 +324,7 @@ class ContractOfferSerializer(serializers.ModelSerializer):
     deliverable_description = serializers.SerializerMethodField()
     deliverable_deadline = serializers.SerializerMethodField()
     deliverable_submitted_at = serializers.SerializerMethodField()
+    deliverable_status = serializers.SerializerMethodField()
 
 
     class Meta:
@@ -345,6 +346,7 @@ class ContractOfferSerializer(serializers.ModelSerializer):
             'deliverable_title',
             'deliverable_description',
             'deliverable_deadline',
+            'deliverable_status',
             'deliverable_submitted_at',
         ]
 
@@ -365,6 +367,9 @@ class ContractOfferSerializer(serializers.ModelSerializer):
 
     def get_deliverable_deadline(self, obj):
         return getattr(obj.deliverable, 'deadline', None)
+
+    def get_deliverable_status(self, obj):
+        return getattr(obj.deliverable, 'status', '')
     
     def get_deliverable_submitted_at(self, obj):
         return getattr(obj.deliverable, 'submitted_at', '')
