@@ -3,6 +3,7 @@ from django.conf import settings
 from django.utils import timezone
 from ..models import Payment
 from .escrow_service import EscrowService
+from decimal import Decimal
 
 stripe.api_key = settings.STRIPE_SECRET_KEY   #this connects our app/platform to our platform's Stripe account. and then our platform/app can interact with our platform's Stripe using 'stripe' package
 
@@ -72,18 +73,17 @@ class StripeEscrowService:
             raise ValueError("Influencer does not have a connected Stripe account")
         
         # Convert to cents for Stripe
-        amount_cents = int(payment.amount * 100)
+        amount_cents = int(payment.amount * Decimal('100'))
         
         # Calculate platform fee 
-        platform_fee = int(payment.amount * 0.05 * 100)  # 5% platform fee. for eg, if the payment amount is 30$ then platform fee is 2.7$
+        platform_fee = int(payment.amount * Decimal('0.05') * Decimal('100'))  # 5% platform fee. for eg, if the payment amount is 30$ then platform fee is 2.7$
         transfer_amount = amount_cents - platform_fee    #would be 27.3$
         
         # Creates & processes the transfer request to the influencer's connected account
         transfer = stripe.Transfer.create(     #When stripe.Transfer.create() is called, it both creates the transfer record and actually moves the money to the influencer’s connected Stripe account in real-time.
             amount=transfer_amount,
             currency="usd",
-            destination=influencer_stripe_account,
-            source_transaction=payment.transaction_id,  # payment.transaction_id is the PaymentIntent ID, w/h refers to the original payment that deposited money into the platform’s Stripe account. #this links the source payment to this transfer. 
+            destination=influencer_stripe_account,  # payment.transaction_id is the PaymentIntent ID, w/h refers to the original payment that deposited money into the platform’s Stripe account. #this links the source payment to this transfer. 
             metadata={
                 'payment_id': payment.id,
                 'contract_id': payment.contract.id,
@@ -95,14 +95,15 @@ class StripeEscrowService:
         # Line 86: It creates a clear relationship between the original deposit and the transfer(payout) to the influencer.
         
         # Update payment status and add transfer details in the db
-        payment = EscrowService.release_payment(payment_id)
+        # payment = EscrowService.release_payment(payment_id)   - we did this before, but its not needed
         payment.transfer_id = transfer.id
-        payment.transfer_amount = transfer_amount / 100  # Convert back to dollars
-        payment.platform_fee = platform_fee / 100  # Convert back to dollars
+        payment.transfer_amount = transfer_amount / 100
+        payment.platform_fee = platform_fee / 100
         payment.transfer_date = timezone.now()
+
+        payment.status = 'released'
+        payment.updated_at = timezone.now()
         payment.save()
-        
-        return payment
 
 
     

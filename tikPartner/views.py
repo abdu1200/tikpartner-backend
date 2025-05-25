@@ -8,10 +8,11 @@ from rest_framework.response import Response
 from rest_framework.permissions import AllowAny, IsAuthenticated, IsAdminUser, BasePermission
 from rest_framework.exceptions import PermissionDenied
 from rest_framework.decorators import action
+from rest_framework.parsers import MultiPartParser, FormParser
 from rest_framework import status
 from rest_framework.views import APIView
-from .models import Category, Language, InfluencerProfile, BrandProfile, Conversation, Message, Contract, Deliverable, DeliverableAttachment, Payment, Review, Dispute
-from .serializers import CategorySerializer, LanguageSerializer, BrandProfileSerializer, InfluencerProfileSerializer, ConversationSerializer, MessageSerializer, ContractSerializer, ContractDetailSerializer, ContractCreateSerializer, ContractOfferSerializer, DeliverableSerializer, DeliverableDetailSerializer, SubmitDeliverableSerializer, PaymentSerializer, PaymentDetailSerializer, ReviewSerializer, DisputeSerializer
+from .models import Category, Language, InfluencerProfile, InfluencerPortfolio, BrandProfile, Conversation, Message, Contract, Deliverable, DeliverableAttachment, Payment, Review, Dispute
+from .serializers import CategorySerializer, LanguageSerializer, BrandProfileSerializer, InfluencerProfileSerializer, InfluencerPortfolioSerializer, CreateInfluencerPortfolioSerializer, ConversationSerializer, MessageSerializer, ContractSerializer, ContractDetailSerializer, ContractCreateSerializer, ContractOfferSerializer, DeliverableSerializer, DeliverableDetailSerializer, SubmitDeliverableSerializer, PaymentSerializer, PaymentDetailSerializer, ReviewSerializer, DisputeSerializer
 from .services.escrow_service import EscrowService
 from .services.stripe_escrow_service import StripeEscrowService
 import stripe
@@ -80,6 +81,34 @@ class InfluencerUserViewSet(ModelViewSet):
 
 
 
+class InfluencerPortfolioViewSet(ModelViewSet):
+    permission_classes = [IsAuthenticated]
+    parser_classes = [MultiPartParser, FormParser]  # Add this for file uploads
+    
+    def get_queryset(self):
+        return InfluencerPortfolio.objects.filter(influencer=self.request.user.influencer_profile)
+    
+    def get_serializer_class(self):
+        if self.action in ['create', 'update', 'partial_update']:
+            return CreateInfluencerPortfolioSerializer
+        return InfluencerPortfolioSerializer
+    
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(
+            data=request.data,
+            context={'influencer': request.user.influencer_profile}
+        )
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+
+        return Response({
+            'message': 'Portfolio submitted successfully',
+            'portfolio_id': serializer.instance.id if hasattr(serializer, 'instance') and serializer.instance else None
+        }, status=status.HTTP_201_CREATED)
+
+
+
+
 class BrandUserViewSet(ModelViewSet):
     queryset = BrandProfile.objects.all()
     serializer_class = BrandProfileSerializer
@@ -143,7 +172,7 @@ class InfluencerStripeOnboardingView(APIView):
                 account_link = stripe.AccountLink.create(    # here we are generating a new onboarding link(refresh link) for an influencer who already has a Stripe account, incase the previous onboarding(connecting bank accounts with the created Stripe account) was not completed successfully.
                     account=influencer.stripe_account_id,
                     refresh_url=f"{settings.FRONTEND_URL}/onboarding/stripe/refresh",
-                    return_url=f"{settings.FRONTEND_URL}/onboarding/stripe/complete",
+                    return_url=f"https://tikfrontend-latest.onrender.com/StripeSuccessPage",
                     type="account_onboarding",
                 )
                 return Response({"url": account_link.url})   # here we are sending the generated onboarding link(refresh link this time) to the client(influencer)
@@ -175,10 +204,10 @@ class InfluencerStripeOnboardingView(APIView):
             account_link = stripe.AccountLink.create(
                 account=account.id,
                 refresh_url=f"{settings.FRONTEND_URL}/onboarding/stripe/refresh",
-                return_url=f"{settings.FRONTEND_URL}/onboarding/stripe/complete",
+                return_url=f"https://tikfrontend-latest.onrender.com/StripeSuccessPage",   # The return_url is where Stripe sends the user after they finish the onboarding process. # It's usually a page on your website that confirms(success or fail) their Stripe account setup is complete.
                 type="account_onboarding",
             )
-            
+                # The refresh_url is where Stripe sends the user if they click "refresh" or something goes wrong during onboarding (like a session timeout).
             return Response({"url": account_link.url})   #return the onboarding link(account_link.url) back to the client(influencer)
             
         except stripe.error.StripeError as e:
@@ -205,6 +234,11 @@ class InfluencerStripeOnboardingView(APIView):
         try:
             # if the influencer has a Stripe account, then Check the account status
             account = stripe.Account.retrieve(influencer.stripe_account_id)  # here retreiving the specific Stripe account info
+
+            # If onboarding is complete, mark the influencer as onboarded in your DB
+            if account.details_submitted and not influencer.onboarded:
+                influencer.onboarded = True
+                influencer.save()
             
             return Response({
                 "onboarded": account.details_submitted,     # 'account.details_submitted' checks if the influencer(client) has completed the necessary steps, including entering their bank account details. It returns True if the onboarding is complete(or was succesful), indicating the account(the Stripe account) is ready for use.
@@ -217,7 +251,7 @@ class InfluencerStripeOnboardingView(APIView):
             return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
 # POST: Start onboarding process.
-# GET: Check onboarding progress.
+# GET: Check onboarding progress(status).
 
 
 
@@ -434,7 +468,33 @@ class ActiveContractsViewSet(ModelViewSet):
         return Contract.objects.none()
 
 
-class ApproveWorksViewSet(ModelViewSet):
+class ActiveContractsBrandViewSet(ModelViewSet):
+    serializer_class = ContractOfferSerializer
+    #permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        user = self.request.user
+
+        if hasattr(user, 'brand_profile'):
+            return Contract.objects.filter(
+                brand=user.brand_profile,
+                is_signed_by_brand=True,
+                is_signed_by_influencer=True,
+                payment__status='in_escrow',
+                deliverable__status='pending',
+            )
+        elif hasattr(user, 'influencer_profile'):
+            return Contract.objects.filter(
+                influencer=user.influencer_profile,
+                is_signed_by_brand=True,
+                is_signed_by_influencer=True,
+                payment__status='in_escrow',
+                deliverable__status='pending',
+            )
+        return Contract.objects.none()
+
+
+class ApproveWorksViewSet(ModelViewSet):  #contracts waiting for approval or revision request
     serializer_class = ContractOfferSerializer
     #permission_classes = [IsAuthenticated]
 
@@ -460,6 +520,59 @@ class ApproveWorksViewSet(ModelViewSet):
         return Contract.objects.none()
 
 
+class ContractsOnRevisionViewset(ModelViewSet):   #revision contracts
+    serializer_class = ContractOfferSerializer
+    #permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        user = self.request.user
+
+        if hasattr(user, 'brand_profile'):
+            return Contract.objects.filter(
+                brand=user.brand_profile,
+                is_signed_by_brand=True,
+                is_signed_by_influencer=True,
+                payment__status='in_escrow',
+                deliverable__status='revision',
+            )
+        elif hasattr(user, 'influencer_profile'):
+            return Contract.objects.filter(
+                influencer=user.influencer_profile,
+                is_signed_by_brand=True,
+                is_signed_by_influencer=True,
+                payment__status='in_escrow',
+                deliverable__status='revision',
+            )
+        return Contract.objects.none()
+
+
+
+class ReleasedContractsViewset(ModelViewSet):   #deliverable approved and fund released contracts
+    serializer_class = ContractOfferSerializer
+    #permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        user = self.request.user
+
+        if hasattr(user, 'brand_profile'):
+            return Contract.objects.filter(
+                brand=user.brand_profile,
+                is_signed_by_brand=True,
+                is_signed_by_influencer=True,
+                payment__status='released',
+                deliverable__status='approved',
+            )
+        elif hasattr(user, 'influencer_profile'):
+            return Contract.objects.filter(
+                influencer=user.influencer_profile,
+                is_signed_by_brand=True,
+                is_signed_by_influencer=True,
+                payment__status='released',
+                deliverable__status='approved',
+            )
+        return Contract.objects.none()
+
+
 
 
 
@@ -481,6 +594,21 @@ class DeliverableViewSet(ModelViewSet):
         elif hasattr(user, 'influencer_profile'):
             return Deliverable.objects.filter(contract__influencer=user.influencer_profile)
         return Deliverable.objects.none()
+
+    def partial_update(self, request, *args, **kwargs):  # this is for when the 'Revision Required' button is clicked by the brand
+        instance = self.get_object()
+        status_value = request.data.get("status")
+
+        # If setting to 'revision', delete attachments
+        if status_value == "revision":
+            instance.status = "revision"
+            instance.attachments.all().delete()
+            instance.save()
+            serializer = self.get_serializer(instance)
+            return Response(serializer.data, status=status.HTTP_200_OK)
+
+        # Otherwise, proceed with default behavior
+        return super().partial_update(request, *args, **kwargs)
     
     @action(detail=True, methods=['post'])
     def submit_attachments(self, request, pk=None):

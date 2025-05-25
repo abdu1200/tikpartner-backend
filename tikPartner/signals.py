@@ -6,11 +6,12 @@ from django.utils import timezone
 from django.core.mail import send_mail
 from .models import Payment, Deliverable
 from .services.escrow_service import EscrowService
+from decimal import Decimal
 
 stripe.api_key = settings.STRIPE_SECRET_KEY
 
 # this Automatically releases escrow payments when all deliverables are approved, both updating the database status and triggering the actual Stripe transfer.
-
+"""
 @receiver(post_save, sender=Deliverable) # receiver is a signal decorator  # it listens for when a Deliverable(model class) object is saved or updated (post_save)  # so Deliverable is the one that triggers the signal(sender) 
 def auto_release_payment_on_deliverable_approval(sender, instance, created, **kwargs):   # 'instance' refers to the actual Deliverable object that was saved or updated.   # 'sender' Refers to the model class (Deliverable) that triggered the signal
     # created refers to a boolean value indicating whether the Deliverable object was created (True) or updated (False).
@@ -67,6 +68,7 @@ def auto_release_payment_on_deliverable_approval(sender, instance, created, **kw
             except stripe.error.StripeError as e:
                  print(f"Stripe error occurred: {str(e)}")
 
+"""
 
 ########
 
@@ -136,16 +138,16 @@ def notify_payment_status_change(sender, instance, created, **kwargs):
         # Notify influencer that payment has been released
         send_mail(
             subject="Payment Released",
-            message=f"Hello {influencer.user.first_name},\n\nGreat news! A payment of ${net_amount} for contract #{contract.id} with {brand.user.first_name} has been released to your account.\n\nPlease allow 2-3 business days for the funds to appear in your bank account.\n\nThank you for using our platform!",
+            message=f"Hello {influencer.user.first_name},\n\nGreat news! A payment of net amount: ${net_amount} (cutting 5% platform fee) for contract #{contract.title} with {brand.user.first_name} has been released to your account.\n\nThank you for using our platform!",
             from_email=settings.EMAIL_HOST_USER,
             recipient_list=[influencer.user.email],
             fail_silently=False,
         )
         
-        # Also notify brand
+        #Also notify brands
         send_mail(
             subject="Payment Released to Influencer",
-            message=f"Hello {brand.user.first_name},\n\nThis is to confirm that your payment of ${instance.amount} has been released to {influencer.user.first_name} for contract #{contract.id}.\n\nThank you for using our platform!",
+            message=f"Hello {brand.user.first_name},\n\nThis is to confirm that your payment of ${instance.amount} has been released to {influencer.user.first_name} for contract #{contract.title}.\n\nThank you for using our platform!",
             from_email=settings.EMAIL_HOST_USER,
             recipient_list=[brand.user.email],
             fail_silently=False,

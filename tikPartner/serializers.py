@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Category, Language, InfluencerProfile, BrandProfile, Conversation, Message, Contract, Deliverable, DeliverableAttachment, Payment, Review, Dispute
+from .models import Category, Language, InfluencerProfile, InfluencerPortfolio, BrandProfile, Conversation, Message, Contract, Deliverable, DeliverableAttachment, Payment, Review, Dispute
 from custom.user_serializers import CustomUserSerializer 
 from custom.models import CustomUser
 
@@ -136,6 +136,68 @@ what you do is, first you create your main instance(w/h is the InfluencerProfile
 
 """        
 
+
+class InfluencerPortfolioSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = InfluencerPortfolio
+        fields = ['id', 'file', 'title', 'original_filename', 'created_at']
+
+class CreateInfluencerPortfolioSerializer(serializers.ModelSerializer):
+    file = serializers.FileField(required=False)
+    files = serializers.ListField(
+        child=serializers.FileField(),
+        write_only=True,
+        required=False
+    )
+    
+    class Meta:
+        model = InfluencerPortfolio
+        fields = ['file', 'title', 'files']
+    
+    def create(self, validated_data):
+        try:
+            files = validated_data.pop('files', [])
+            single_file = validated_data.get('file')
+            title = validated_data['title']
+            influencer = self.context.get('influencer')
+
+            if files:
+                portfolios = []
+                for file in files: 
+                    portfolio = InfluencerPortfolio.objects.create(
+                        influencer=influencer,
+                        title=title,
+                        file=file,
+                        original_filename=file.name
+                    )
+                    portfolios.append(portfolio)
+                return portfolios[0]
+            
+            elif single_file:
+                return InfluencerPortfolio.objects.create(
+                    influencer=influencer,
+                    title=title,
+                    file=single_file,
+                    original_filename=file.name
+                )
+            
+            raise serializers.ValidationError("Either 'file' or 'files' must be provided")
+        
+        except Exception as e:
+            import traceback
+            print("EXCEPTION:", str(e))
+            traceback.print_exc()
+            raise serializers.ValidationError("Something went wrong during portfolio creation.")
+
+
+
+
+
+
+
+
+
+## Brand Serializer
 class BrandProfileSerializer(serializers.ModelSerializer):
     user = CustomUserSerializer() # Nest the full user details (nest CustomUserSerializer)
 
@@ -319,12 +381,16 @@ class ContractOfferSerializer(serializers.ModelSerializer):
     influencer_name = serializers.ReadOnlyField(source='influencer.display_name')
     payment_amount = serializers.SerializerMethodField()
     payment_id = serializers.SerializerMethodField()
+    payment_transfer_amount = serializers.SerializerMethodField()
+    payment_platform_fee = serializers.SerializerMethodField()
     deliverable_id = serializers.SerializerMethodField()
     deliverable_title = serializers.SerializerMethodField()
     deliverable_description = serializers.SerializerMethodField()
     deliverable_deadline = serializers.SerializerMethodField()
     deliverable_submitted_at = serializers.SerializerMethodField()
+    deliverable_revised_at = serializers.SerializerMethodField()
     deliverable_status = serializers.SerializerMethodField()
+    deliverable_approved_at = serializers.SerializerMethodField()
 
 
     class Meta:
@@ -340,14 +406,18 @@ class ContractOfferSerializer(serializers.ModelSerializer):
             'influencer_signed_at',
             'is_signed_by_brand',
             'brand_signed_at',
-            'payment_amount',
             'payment_id',
+            'payment_amount',
+            'payment_transfer_amount',
+            'payment_platform_fee',
             'deliverable_id',
             'deliverable_title',
             'deliverable_description',
             'deliverable_deadline',
             'deliverable_status',
             'deliverable_submitted_at',
+            'deliverable_approved_at',
+            'deliverable_revised_at',
         ]
 
     def get_payment_amount(self, obj):
@@ -355,6 +425,12 @@ class ContractOfferSerializer(serializers.ModelSerializer):
 
     def get_payment_id(self, obj):
         return getattr(obj.payment, 'id', None)
+    
+    def get_payment_transfer_amount(self, obj):
+        return getattr(obj.payment, 'transfer_amount', None)
+
+    def get_payment_platform_fee(self, obj):
+        return getattr(obj.payment, 'platform_fee', None)
 
     def get_deliverable_id(self, obj):
         return getattr(obj.deliverable, 'id', '')
@@ -373,6 +449,12 @@ class ContractOfferSerializer(serializers.ModelSerializer):
     
     def get_deliverable_submitted_at(self, obj):
         return getattr(obj.deliverable, 'submitted_at', '')
+    
+    def get_deliverable_revised_at(self, obj):
+        return getattr(obj.deliverable, 'revised_at', '')
+
+    def get_deliverable_approved_at(self, obj):
+        return getattr(obj.deliverable, 'approved_at', '')
 
 
 

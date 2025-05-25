@@ -33,6 +33,7 @@ class InfluencerProfile(models.Model):
     languages = models.ManyToManyField(Language, related_name='influencers') 
     budget = models.CharField(max_length=30, blank=True)
     stripe_account_id = models.CharField(max_length=255, blank=True, null=True)
+    onboarded = models.BooleanField(default=False)
 
     # TikTok Specific
     tiktok_username = models.CharField(max_length=30, unique=True)
@@ -46,6 +47,15 @@ class InfluencerProfile(models.Model):
         return self.user.email
 
 
+class InfluencerPortfolio(models.Model):
+    influencer = models.ForeignKey('InfluencerProfile', on_delete=models.CASCADE, related_name='portfolios')
+    title = models.CharField(max_length=255)
+    file = CloudinaryField('portfolio_file', resource_type='auto')
+    original_filename = models.CharField(max_length=255, blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"{self.title} - {self.influencer.display_name}"
 
 
     
@@ -121,6 +131,9 @@ class Deliverable(models.Model):
     feedback = models.TextField(blank=True)
     deadline = models.DateTimeField(null=True, blank=True)
     submitted_at = models.DateTimeField(null=True, blank=True)
+    resubmitted_at = models.DateTimeField(null=True, blank=True)
+    revised_at = models.DateTimeField(null=True, blank=True)   #set by the influencer
+    approved_at = models.DateTimeField(null=True, blank=True)  #set by the brand
 
     def __str__(self):
         return f"Deliverable: {self.title}"
