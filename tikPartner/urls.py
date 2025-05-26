@@ -1,7 +1,7 @@
 from django.urls import path, include
 #from rest_framework.routers import DefaultRouter
 from rest_framework_nested.routers import DefaultRouter, NestedDefaultRouter
-from .views import CategoryViewSet, LanguageViewSet, InfluencerPortfolioViewSet, ConversationViewSet, MessageViewSet, ContractViewSet, RequestedOffersViewSet, AcceptedOffersViewSet, ActiveContractsViewSet, ActiveContractsBrandViewSet, ApproveWorksViewSet, ContractsOnRevisionViewset, ReleasedContractsViewset, DeliverableViewSet, PaymentViewSet, InfluencerStripeOnboardingView, ReviewViewSet, TikTokAuthView
+from .views import CategoryViewSet, LanguageViewSet, InfluencerPortfolioViewSet, ConversationViewSet, MessageViewSet, ContractViewSet, RequestedOffersViewSet, AcceptedOffersViewSet, ActiveContractsViewSet, ActiveContractsBrandViewSet, ApproveWorksViewSet, ContractsOnRevisionViewset, ReleasedContractsViewset, ReviewedContractsViewset, DeliverableViewSet, PaymentViewSet, InfluencerStripeOnboardingView, ReviewViewSet, TikTokAuthView
 from drf_yasg.views import get_schema_view
 from drf_yasg import openapi
 
@@ -20,6 +20,7 @@ router.register(r'active_contracts_brand', ActiveContractsBrandViewSet, basename
 router.register(r'approve_works', ApproveWorksViewSet, basename='approve_work')
 router.register(r'contracts_on_revision', ContractsOnRevisionViewset, basename='contract_on_revision')
 router.register(r'released_contracts', ReleasedContractsViewset, basename='released_contract')
+router.register(r'reviewed_contracts', ReviewedContractsViewset, basename='reviewed_contract')
 router.register(r'deliverables', DeliverableViewSet, basename='deliverable')
 router.register(r'payments', PaymentViewSet, basename='payment')
 router.register(r'reviews', ReviewViewSet, basename='review')

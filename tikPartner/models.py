@@ -128,7 +128,7 @@ class Deliverable(models.Model):
     title = models.CharField(max_length=255)
     description = models.TextField(blank=True)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
-    feedback = models.TextField(blank=True)
+    #feedback = models.TextField(blank=True)
     deadline = models.DateTimeField(null=True, blank=True)
     submitted_at = models.DateTimeField(null=True, blank=True)
     resubmitted_at = models.DateTimeField(null=True, blank=True)
@@ -180,10 +180,10 @@ class Payment(models.Model):
 
 
 class Review(models.Model):
-    contract = models.ForeignKey(Contract, on_delete=models.CASCADE, related_name='reviews')
+    contract = models.OneToOneField(Contract, on_delete=models.CASCADE, related_name='review')
     reviewer = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='reviews_given')
     reviewee = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='reviews_received')
-    rating = models.PositiveSmallIntegerField(validators=[MinValueValidator(1), MaxValueValidator(5)])
+    rating = models.PositiveSmallIntegerField(validators=[MinValueValidator(1), MaxValueValidator(5)], null=True, blank=True)
     review_text = models.TextField(blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 

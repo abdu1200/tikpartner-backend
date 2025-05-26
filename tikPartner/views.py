@@ -86,6 +86,12 @@ class InfluencerPortfolioViewSet(ModelViewSet):
     parser_classes = [MultiPartParser, FormParser]  # Add this for file uploads
     
     def get_queryset(self):
+         # Check for query parameters
+        influencer_id = self.request.query_params.get('influencer_id')
+
+        if influencer_id:    # api/influencer-portfolio/?influencer=influencer
+            return InfluencerPortfolio.objects.filter(influencer_id=influencer_id)
+
         return InfluencerPortfolio.objects.filter(influencer=self.request.user.influencer_profile)
     
     def get_serializer_class(self):
@@ -574,6 +580,35 @@ class ReleasedContractsViewset(ModelViewSet):   #deliverable approved and fund r
 
 
 
+class ReviewedContractsViewset(ModelViewSet):  
+    serializer_class = ContractOfferSerializer
+    #permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        user = self.request.user
+
+        if hasattr(user, 'brand_profile'):
+            return Contract.objects.filter(
+                brand=user.brand_profile,
+                is_signed_by_brand=True,
+                is_signed_by_influencer=True,
+                payment__status='released',
+                deliverable__status='approved',
+                review__rating__isnull=False,    # This ensures only reviewed contracts are included
+            )
+        elif hasattr(user, 'influencer_profile'):
+            return Contract.objects.filter(
+                influencer=user.influencer_profile,
+                is_signed_by_brand=True,
+                is_signed_by_influencer=True,
+                payment__status='released',
+                deliverable__status='approved',
+                review__rating__isnull=False,  
+            )
+        return Contract.objects.none()
+
+
+
 
 
 #### DELIVERABLE VIEW SET
@@ -670,27 +705,27 @@ class DeliverableViewSet(ModelViewSet):
 
 
 
-    @action(detail=True, methods=['post'])
-    def review(self, request, pk=None):
-        deliverable = self.get_object()
-        user = request.user
+    # @action(detail=True, methods=['post'])
+    # def review(self, request, pk=None):
+    #     deliverable = self.get_object()
+    #     user = request.user
         
-        if not hasattr(user, 'brand_profile') or user.brand_profile != deliverable.contract.brand:
-            return Response({"error": "Only the brand can review deliverables"}, 
-                            status=status.HTTP_403_FORBIDDEN)
+    #     if not hasattr(user, 'brand_profile') or user.brand_profile != deliverable.contract.brand:
+    #         return Response({"error": "Only the brand can review deliverables"}, 
+    #                         status=status.HTTP_403_FORBIDDEN)
         
-        status_choice = request.data.get('status')
-        feedback = request.data.get('feedback', '')
+    #     status_choice = request.data.get('status')
+    #     feedback = request.data.get('feedback', '')
         
-        if status_choice not in ['approved', 'revision']:
-            return Response({"error": "Status must be either 'approved' or 'revision'"}, 
-                            status=status.HTTP_400_BAD_REQUEST)
+    #     if status_choice not in ['approved', 'revision']:
+    #         return Response({"error": "Status must be either 'approved' or 'revision'"}, 
+    #                         status=status.HTTP_400_BAD_REQUEST)
         
-        deliverable.status = status_choice
-        deliverable.feedback = feedback
-        deliverable.save()
+    #     deliverable.status = status_choice
+    #     deliverable.feedback = feedback
+    #     deliverable.save()
         
-        return Response(DeliverableDetailSerializer(deliverable).data)
+    #     return Response(DeliverableDetailSerializer(deliverable).data)
 
 """
 - DRF handles the initial parsing of request data to a dictionary before it reaches your view. This parsing happens in DRF's request handling pipeline, not in your view.
@@ -892,16 +927,25 @@ class ReviewViewSet(ModelViewSet):
     permission_classes = [IsAuthenticated, IsContractParticipant]
     
     def get_queryset(self):
-        user = self.request.user    # the current user making the request
-        queryset = Review.objects.filter(  # you only get a review instances where you are either the reviewer or the reviewee
-            reviewer=user
-        ) | Review.objects.filter(
-            reviewee=user
-        )
-        contract_id = self.request.query_params.get('contract_id')  # api/reviews/?contract_id=""
-        if contract_id:
-            queryset = queryset.filter(contract_id=contract_id)  # you can also over filter(narrow) the review instances you get like for a specific contract
-        return queryset
+        user = self.request.user
+
+         # Check for query parameters
+        influencer_user_id = self.request.query_params.get('influencer_user_id')
+
+        # If specific influencer's reviews are requested from a brand page(user)
+        if influencer_user_id:    # api/reviews/?influencer_user_id=123
+            return Review.objects.filter(reviewee_id=influencer_user_id)
+
+        if hasattr(user, 'brand_profile'):
+            # Bcoz brand can only be a reviewer
+            return Review.objects.filter(reviewer=user)
+
+        elif hasattr(user, 'influencer_profile'):
+            # Bcoz influencer can only be a reviewee
+            return Review.objects.filter(reviewee=user)
+
+        return Review.objects.none()
+
 
     def perform_create(self, serializer):
         contract_id = self.request.data.get('contract')

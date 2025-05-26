@@ -138,9 +138,10 @@ what you do is, first you create your main instance(w/h is the InfluencerProfile
 
 
 class InfluencerPortfolioSerializer(serializers.ModelSerializer):
+    influencer_name = serializers.ReadOnlyField(source='influencer.display_name')
     class Meta:
         model = InfluencerPortfolio
-        fields = ['id', 'file', 'title', 'original_filename', 'created_at']
+        fields = ['id', 'file', 'title', 'original_filename', 'created_at', 'influencer_name']
 
 class CreateInfluencerPortfolioSerializer(serializers.ModelSerializer):
     file = serializers.FileField(required=False)
@@ -379,6 +380,7 @@ class ContractCreateSerializer(serializers.ModelSerializer):
 class ContractOfferSerializer(serializers.ModelSerializer):
     brand_name = serializers.ReadOnlyField(source='brand.company_name')
     influencer_name = serializers.ReadOnlyField(source='influencer.display_name')
+    influencer_user_id = serializers.ReadOnlyField(source='influencer.user.id') 
     payment_amount = serializers.SerializerMethodField()
     payment_id = serializers.SerializerMethodField()
     payment_transfer_amount = serializers.SerializerMethodField()
@@ -391,6 +393,10 @@ class ContractOfferSerializer(serializers.ModelSerializer):
     deliverable_revised_at = serializers.SerializerMethodField()
     deliverable_status = serializers.SerializerMethodField()
     deliverable_approved_at = serializers.SerializerMethodField()
+    review_id = serializers.SerializerMethodField()
+    review_rating = serializers.SerializerMethodField()
+    review_review_text = serializers.SerializerMethodField()
+    review_created_at = serializers.SerializerMethodField()
 
 
     class Meta:
@@ -401,6 +407,7 @@ class ContractOfferSerializer(serializers.ModelSerializer):
             'brand_name',
             'influencer',
             'influencer_name',
+            'influencer_user_id',
             'title',
             'is_signed_by_influencer',
             'influencer_signed_at',
@@ -418,6 +425,10 @@ class ContractOfferSerializer(serializers.ModelSerializer):
             'deliverable_submitted_at',
             'deliverable_approved_at',
             'deliverable_revised_at',
+            'review_id',
+            'review_rating',
+            'review_review_text',
+            'review_created_at',
         ]
 
     def get_payment_amount(self, obj):
@@ -455,6 +466,20 @@ class ContractOfferSerializer(serializers.ModelSerializer):
 
     def get_deliverable_approved_at(self, obj):
         return getattr(obj.deliverable, 'approved_at', '')
+
+    # this is bcuz when 'ReleasedContractsViewset' returns contracts, at that point, those contracts doesn't have reviews, so when this serializer tries to access the review fields on those contracts, it returns 500 server error.
+    # so for that reason, we do extra checking if there is a reviews for those contracts first
+    def get_review_id(self, obj):
+        return getattr(obj.review, 'id', None) if hasattr(obj, 'review') and obj.review else None
+
+    def get_review_rating(self, obj):
+        return getattr(obj.review, 'rating', None) if hasattr(obj, 'review') and obj.review else None
+
+    def get_review_review_text(self, obj):
+        return getattr(obj.review, 'review_text', None) if hasattr(obj, 'review') and obj.review else None
+
+    def get_review_created_at(self, obj):
+        return getattr(obj.review, 'created_at', None) if hasattr(obj, 'review') and obj.review else None
 
 
 
@@ -545,13 +570,14 @@ class UserSerializer(serializers.ModelSerializer):
 class ReviewSerializer(serializers.ModelSerializer):
     reviewer_info = UserSerializer(source='reviewer', read_only=True)   # this returns the reviewer user information(id, username & email)   # reviewer & reviewee are user objects here
     reviewee_info = UserSerializer(source='reviewee', read_only=True)
-    
+    contract_title = serializers.ReadOnlyField(source='contract.title') 
+
     class Meta:
         model = Review
         fields = [
             'id', 'contract', 'reviewer', 'reviewee', 
             'rating', 'review_text', 'created_at',
-            'reviewer_info', 'reviewee_info'
+            'reviewer_info', 'reviewee_info', 'contract_title'
         ] 
         read_only_fields = ['reviewer', 'created_at']     # here the reviewer is read only b/c we're gonna extract it from the user making the request(the influencer or brand or clients)  # so in the creation(post) of a review, you only pass the reviewee user(its user id)
     
@@ -561,27 +587,27 @@ class ReviewSerializer(serializers.ModelSerializer):
     def validate(self, data):    # this is just a custom validation(object level validation after field level validation)
         contract = data.get('contract')    # this is contract object
         reviewee = data.get('reviewee')    # reviewee = user object  
-        
+        reviewer = self.context['request'].user  # Current user making the request (reviewer)
+
         if not contract:
             raise serializers.ValidationError("Contract is required")
         
-        # Ensure reviewee is part of the contract
-        if reviewee.id != contract.brand.user.id and reviewee.id != contract.influencer.user.id:
-            raise serializers.ValidationError("Reviewee must be a party in the contract")
-        
-        # Ensure reviewer is also part of the contract  
-        reviewer = self.context['request'].user      # this is how you access 'the current user making the request' in the serializer    # reviewer = the current user object
-        if reviewer.id != contract.brand.user.id and reviewer.id != contract.influencer.user.id:
-            raise serializers.ValidationError("You must be a party in the contract to leave a review")
-        
+         # Ensure the reviewer is the brand in the contract(implicitely a party in the contract )
+        if reviewer.id != contract.brand.user.id:
+            raise serializers.ValidationError("Only the brand can leave a review.")
+
+        # Ensure the reviewee is the influencer in the contract(imlicitely a party in the contract)
+        if reviewee.id != contract.influencer.user.id:
+            raise serializers.ValidationError("Only the influencer can be reviewed.")
+
         # Ensure reviewer is not reviewing themselves
         if reviewer.id == reviewee.id:
-            raise serializers.ValidationError("You cannot review yourself")
-        
+            raise serializers.ValidationError("You cannot review yourself.")
+            
         return data
     
     def create(self, validated_data):
-        validated_data['reviewer'] = self.context['request'].user    # this is because the returned data(validated_data) from the validate method doesn't include the 'reviewer'
+        validated_data['reviewer'] = self.context['request'].user    # this is because the returned data(validated_data) from the validate method doesn't include the 'reviewer' b/c it only considers the data that came in the payload from the request(so not read only datas)
         return super().create(validated_data)
 
 
