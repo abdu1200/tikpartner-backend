@@ -1,7 +1,7 @@
 from django.urls import path, include
 #from rest_framework.routers import DefaultRouter
 from rest_framework_nested.routers import DefaultRouter, NestedDefaultRouter
-from .views import CategoryViewSet, LanguageViewSet, InfluencerPortfolioViewSet, ConversationViewSet, MessageViewSet, ContractViewSet, RequestedOffersViewSet, AcceptedOffersViewSet, ActiveContractsViewSet, ActiveContractsBrandViewSet, ApproveWorksViewSet, ContractsOnRevisionViewset, ReleasedContractsViewset, ReviewedContractsViewset, DeliverableViewSet, PaymentViewSet, InfluencerStripeOnboardingView, ReviewViewSet, TikTokAuthView
+from .views import CategoryViewSet, LanguageViewSet, InfluencerPortfolioViewSet, ConversationViewSet, MessageViewSet, NotificationListView, MarkNotificationsReadView, ContractViewSet, RequestedOffersViewSet, AcceptedOffersViewSet, ActiveContractsViewSet, ActiveContractsBrandViewSet, ApproveWorksViewSet, ContractsOnRevisionViewset, ReleasedContractsViewset, ReviewedContractsViewset, DeliverableViewSet, PaymentViewSet, InfluencerStripeOnboardingView, ReviewViewSet, TikTokAuthView
 from drf_yasg.views import get_schema_view
 from drf_yasg import openapi
 
@@ -52,6 +52,8 @@ urlpatterns = [
     path('docs/', schema_view.as_view(), name='api-docs'),
     path('auth/tiktok/', TikTokAuthView.as_view(), name='tiktok-auth'),
     path('influencers/stripe-onboarding/', InfluencerStripeOnboardingView.as_view(), name='stripe-onboarding'),
+    path('notifications/', NotificationListView.as_view(), name='get_notifications'),
+    path('notifications/mark-read/', MarkNotificationsReadView.as_view(), name='mark_notifications_read'),
 ]
 
 

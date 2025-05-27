@@ -1,78 +1,15 @@
-import stripe
 from django.conf import settings
 from django.db.models.signals import pre_save, post_save
 from django.dispatch import receiver
 from django.utils import timezone
 from django.core.mail import send_mail
-from .models import Payment, Deliverable
-from .services.escrow_service import EscrowService
-from decimal import Decimal
+from .models import Payment, Deliverable, Contract, Review, Message, MessageNotification
 
-stripe.api_key = settings.STRIPE_SECRET_KEY
 
-# this Automatically releases escrow payments when all deliverables are approved, both updating the database status and triggering the actual Stripe transfer.
-"""
-@receiver(post_save, sender=Deliverable) # receiver is a signal decorator  # it listens for when a Deliverable(model class) object is saved or updated (post_save)  # so Deliverable is the one that triggers the signal(sender) 
-def auto_release_payment_on_deliverable_approval(sender, instance, created, **kwargs):   # 'instance' refers to the actual Deliverable object that was saved or updated.   # 'sender' Refers to the model class (Deliverable) that triggered the signal
-    # created refers to a boolean value indicating whether the Deliverable object was created (True) or updated (False).
 
-    if not created and instance.status == 'approved':
-        # Get all deliverables related to the current deliverable's contract
-        contract = instance.contract
-        deliverables = Deliverable.objects.filter(contract=contract)
-        
-        # Check if all deliverables are approved
-        all_approved = all(d.status == 'approved' for d in deliverables)
-        
-        if all_approved:  # if all the deliverables of the given contract are approved
+### PAYMENT SIGNALS
 
-            payment = Payment.objects.get(contract=contract)  # retrieve the payment for the contract
-            
-            if payment.status != 'in_escrow':
-                raise ValueError(f"Payment must be in 'in_escrow' status to be released. Current status: {payment.status}")
-
-            # Get the influencer's Stripe account ID
-            influencer_stripe_account = payment.contract.influencer.stripe_account_id
-            if not influencer_stripe_account:
-                raise ValueError("Influencer does not have a connected Stripe account")
-            
-            # Convert to cents for Stripe
-            amount_cents = int(payment.amount * 100)
-            
-            # Calculate platform fee 
-            platform_fee = int(payment.amount * 0.05 * 100)  # 5% platform fee. for eg, if the payment amount is 30$ then platform fee is 2.7$
-            transfer_amount = amount_cents - platform_fee    #would be 27.3$
-            
-            # Execute the actual Stripe transfer
-            try:
-                transfer = stripe.Transfer.create(
-                    amount=transfer_amount,  
-                    currency="usd",
-                    destination=influencer_stripe_account,
-                    source_transaction=payment.transaction_id,   # payment.transaction_id is the PaymentIntent ID
-                    metadata={
-                        'payment_id': payment.id,
-                        'contract_id': payment.contract.id,
-                        'transfer_type': 'escrow_release'
-                    }
-                )
-                
-                # Update payment status and add transfer details in the db
-                payment = EscrowService.release_payment(payment_id)
-                payment.transfer_id = transfer.id
-                payment.transfer_amount = transfer_amount / 100  # Convert back to dollars
-                payment.platform_fee = platform_fee / 100  # Convert back to dollars
-                payment.transfer_date = timezone.now()
-                payment.save()
-
-            except stripe.error.StripeError as e:
-                 print(f"Stripe error occurred: {str(e)}")
-
-"""
-
-########
-
-_old_status = {}        # this dictionary contains multiple instance.pk to payment status(key-value pairs) for different payment instances
+_old_status = {}  # this dictionary contains multiple instance.pk to payment status(key-value pairs) for different payment instances
 
 
 # in pre_save, the instance contains the new/updated data but it has not been saved to the database yet. so The database still holds the old data until the actual save happens.
@@ -138,7 +75,7 @@ def notify_payment_status_change(sender, instance, created, **kwargs):
         # Notify influencer that payment has been released
         send_mail(
             subject="Payment Released",
-            message=f"Hello {influencer.user.first_name},\n\nGreat news! A payment of net amount: ${net_amount} (cutting 5% platform fee) for contract #{contract.title} with {brand.user.first_name} has been released to your account.\n\nThank you for using our platform!",
+            message=f"Hello {influencer.user.first_name},\n\nGreat news! your deliverables are approved and a payment of net amount: ${net_amount} (cutting 5% platform fee) for contract #{contract.title} with {brand.user.first_name} has been released to your account.\n\nThank you for using our platform!",
             from_email=settings.EMAIL_HOST_USER,
             recipient_list=[influencer.user.email],
             fail_silently=False,
@@ -173,3 +110,286 @@ def notify_payment_status_change(sender, instance, created, **kwargs):
         )
 
 #do i need in-app notification other than email notification?? nofification model needed?? ask
+
+
+
+
+### CONTRACT SIGNALS
+
+_old_contract_status = {}
+
+
+@receiver(pre_save, sender=Contract)
+def store_old_contract_status(sender, instance, **kwargs):
+    """Store the old contract signing status before saving"""
+    if instance.pk:
+        try:
+            old_contract = Contract.objects.get(pk=instance.pk)
+            _old_contract_status[instance.pk] = {
+                'is_signed_by_brand': old_contract.is_signed_by_brand,
+                'is_signed_by_influencer': old_contract.is_signed_by_influencer,
+            }
+        except Contract.DoesNotExist:
+            _old_contract_status[instance.pk] = {
+                'is_signed_by_brand': False,
+                'is_signed_by_influencer': False,
+            }
+
+
+@receiver(post_save, sender=Contract)
+def notify_contract_signing_changes(sender, instance, created, **kwargs):
+    """Send email notifications when contract signing status changes"""
+    
+    # Skip notifications for newly created contracts
+    if created:
+        return
+    
+    old_status = _old_contract_status.pop(instance.pk, None)
+    if not old_status:
+        return
+    
+    brand = instance.brand
+    influencer = instance.influencer
+    
+    # Check if brand just signed the contract(sent a contract)
+    if not old_status['is_signed_by_brand'] and instance.is_signed_by_brand:
+        # Notify influencer that brand signed(sent a contract)
+        send_mail(
+            subject="Contract Sent by Brand",
+            message=f"Hello {influencer.user.first_name} (from '{influencer.display_name}'),\n\n"
+                   f"Great news! {brand.user.first_name} from '{brand.company_name}' has signed the contract: '{instance.title}'.\n\n"
+                   f"Please review and sign/accept the contract to proceed with the collaboration.\n\n"
+                   f"Thank you for using our platform!",
+            from_email=settings.EMAIL_HOST_USER,
+            recipient_list=[influencer.user.email],
+            fail_silently=False,
+        )
+        
+        # Notify brand about their own signing/sending (confirmation)
+        send_mail(
+            subject="Contract Signing Confirmation",
+            message=f"Hello {brand.user.first_name} (from '{brand.company_name}'),\n\n"
+                   f"You have successfully signed/sent the contract: '{instance.title}' to {influencer.user.first_name} from '{influencer.display_name}'.\n\n"
+                   f"We are now waiting for the influencer to sign/accept the contract.\n\n"
+                   f"Thank you for using our platform!",
+            from_email=settings.EMAIL_HOST_USER,
+            recipient_list=[brand.user.email],
+            fail_silently=False,
+        )
+    
+    # Check if influencer just signed/accepted the contract
+    if not old_status['is_signed_by_influencer'] and instance.is_signed_by_influencer:
+        # Notify brand that influencer signed/accepted the contract
+        send_mail(
+            subject="Contract Signed/accepted by Influencer",
+            message=f"Hello {brand.user.first_name} (from '{brand.company_name}'),\n\n"
+                   f"Excellent! {influencer.user.first_name} from '{influencer.display_name}' has signed/accepted the contract: '{instance.title}'.\n\n"
+                   f"Now you can deposit the fund to escrow and the collaboration can begin.\n\n"
+                   f"Thank you for using our platform!",
+            from_email=settings.EMAIL_HOST_USER,
+            recipient_list=[brand.user.email],
+            fail_silently=False,
+        )
+        
+        # Notify influencer about their own signing/accepting (confirmation)
+        send_mail(
+            subject="Contract Signing/accepting Confirmation",
+            message=f"Hello {influencer.user.first_name} (from '{influencer.display_name}'),\n\n"
+                   f"You have successfully signed/accepted the contract: '{instance.title}' with {brand.user.first_name} from '{brand.company_name}'.\n\n"
+                   f"Once the funds are deposited to escrow and you can begin working on the deliverables.\n\n"
+                   f"Thank you for using our platform!",
+            from_email=settings.EMAIL_HOST_USER,
+            recipient_list=[influencer.user.email],
+            fail_silently=False,
+        )
+    
+    
+
+
+### DELIVERABLE SIGNALS
+
+_old_deliverable_status = {}
+
+
+@receiver(pre_save, sender=Deliverable)
+def store_old_deliverable_status(sender, instance, **kwargs):
+    """Store the old deliverable status before saving"""
+    if instance.pk:
+        try:
+            old_deliverable = Deliverable.objects.get(pk=instance.pk)
+            _old_deliverable_status[instance.pk] = old_deliverable.status
+        except Deliverable.DoesNotExist:
+            _old_deliverable_status[instance.pk] = None
+
+
+@receiver(post_save, sender=Deliverable)
+def notify_deliverable_status_change(sender, instance, created, **kwargs):
+    """Send email notifications when deliverable status changes"""
+    
+    # Skip notifications for newly created deliverables
+    if created:
+        return
+    
+    old_status = _old_deliverable_status.pop(instance.pk, None)
+    
+    # If status hasn't changed, return
+    if old_status == instance.status:
+        return
+    
+    contract = instance.contract
+    brand = contract.brand
+    influencer = contract.influencer
+    
+    # Handle different status changes
+    if instance.status == 'submitted':
+        # Notify brand that deliverable has been submitted
+        send_mail(
+            subject="Deliverable Submitted",
+            message=f"Hello {brand.user.first_name} (from '{brand.company_name}'),\n\n"
+                   f"{influencer.user.first_name} from '{influencer.display_name}' has submitted the deliverable: '{instance.title}' for contract: '{contract.title}'.\n\n"
+                   f"Please review the submission and provide your approval.\n\n"
+                   f"Thank you for using our platform!",
+            from_email=settings.EMAIL_HOST_USER,
+            recipient_list=[brand.user.email],
+            fail_silently=False,
+        )
+        
+        # Notify influencer about successful submission
+        send_mail(
+            subject="Deliverable Successfully Submitted",
+            message=f"Hello {influencer.user.first_name} (from '{influencer.display_name}'),\n\n"
+                   f"Your deliverable: '{instance.title}' for contract: '{contract.title}' has been successfully submitted.\n\n"
+                   f"We have notified {brand.user.first_name} from '{brand.company_name}' to review your work.\n\n"
+                   f"Thank you for using our platform!",
+            from_email=settings.EMAIL_HOST_USER,
+            recipient_list=[influencer.user.email],
+            fail_silently=False,
+        )
+    
+    elif instance.status == 'revision':
+        # Notify influencer that revision is required
+        send_mail(
+            subject="Revision Required for Your Deliverable",
+            message=f"Hello {influencer.user.first_name} (from '{influencer.display_name}'),\n\n"
+                   f"{brand.user.first_name} from '{brand.company_name}' has requested revisions for deliverable: '{instance.title}' (Contract: '{contract.title}').\n\n"
+                   f"Please revise the work and submit the updated work.\n\n"
+                   f"Thank you for using our platform!",
+            from_email=settings.EMAIL_HOST_USER,
+            recipient_list=[influencer.user.email],
+            fail_silently=False,
+        )
+        
+        # Notify brand that revision request has been sent
+        send_mail(
+            subject="Revision Request Sent",
+            message=f"Hello {brand.user.first_name} (from '{brand.company_name}'),\n\n"
+                   f"Your revision request for deliverable: '{instance.title}' (Contract: '{contract.title}') has been sent to {influencer.user.first_name} from '{influencer.display_name}'.\n\n"
+                   f"The influencer will resubmit the work with your requested changes.\n\n"
+                   f"Thank you for using our platform!",
+            from_email=settings.EMAIL_HOST_USER,
+            recipient_list=[brand.user.email],
+            fail_silently=False,
+        )
+    
+    
+    # Handle resubmission (when status changes from 'revision' back to 'submitted')
+    elif instance.status == 'updated':
+        # Notify brand about update submission
+        send_mail(
+            subject="Deliverable Resubmitted After Revision",
+            message=f"Hello {brand.user.first_name} (from '{brand.company_name}'),\n\n"
+                   f"{influencer.user.first_name} from '{influencer.display_name}' has resubmitted/updated the deliverable: '{instance.title}' for contract: '{contract.title}' with your requested revisions.\n\n"
+                   f"Please review the updated submission.\n\n"
+                   f"Thank you for using our platform!",
+            from_email=settings.EMAIL_HOST_USER,
+            recipient_list=[brand.user.email],
+            fail_silently=False,
+        )
+        
+        # Notify influencer about successful resubmission
+        send_mail(
+            subject="Deliverable Successfully Resubmitted",
+            message=f"Hello {influencer.user.first_name} (from '{influencer.display_name}'),\n\n"
+                   f"Your revised deliverable: '{instance.title}' for contract: '{contract.title}' has been successfully resubmitted.\n\n"
+                   f"We have notified {brand.user.first_name} from '{brand.company_name}' to review your updated work.\n\n"
+                   f"Thank you for using our platform!",
+            from_email=settings.EMAIL_HOST_USER,
+            recipient_list=[influencer.user.email],
+            fail_silently=False,
+        )
+
+
+
+
+## REVIEW SIGNALS
+
+
+#_old_review_status = {}
+
+# @receiver(pre_save, sender=Review)
+# def store_old_review_status(sender, instance, **kwargs):
+#     """Store the old review rating before saving"""
+#     if instance.pk:
+#         try:
+#             old_review = Review.objects.get(pk=instance.pk)
+#             _old_review_status[instance.pk] = old_review.rating
+#         except Review.DoesNotExist:
+#             _old_review_status[instance.pk] = None
+
+
+@receiver(post_save, sender=Review)
+def notify_review_changes(sender, instance, created, **kwargs):
+    """Send email notifications when review is created """
+    
+    # old_rating = _old_review_status.pop(instance.pk, None)
+    
+    contract = instance.contract
+    brand_user = instance.reviewer  # Brand user
+    influencer_user = instance.reviewee  # Influencer user
+    
+    # Get brand and influencer profiles
+    brand = brand_user.brand_profile
+    influencer = influencer_user.influencer_profile
+    
+    # Handle new review creation signals
+    if created and instance.rating:
+        # Notify influencer about new review from brand
+        stars = "⭐" * instance.rating
+        send_mail(
+            subject="New Review Received from Brand!",
+            message=f"Hello {influencer_user.first_name} (from '{influencer.display_name}'),\n\n"
+                   f"You have received a new {instance.rating}-star review {stars} from {brand_user.first_name} ('{brand.company_name}') for the contract: '{contract.title}'.\n\n"
+                   f"Review: \"{instance.review_text or 'No review text.'}\"\n\n"
+                   f"This review helps build your reputation on our platform.\n\n"
+                   f"Thank you for using our platform!",
+            from_email=settings.EMAIL_HOST_USER,
+            recipient_list=[influencer_user.email],
+            fail_silently=False,
+        )
+        
+        # Send confirmation to brand
+        send_mail(
+            subject="Review Successfully Submitted",
+            message=f"Hello {brand_user.first_name} (from '{brand.company_name}'),\n\n"
+                   f"Your {instance.rating}-star review {stars} for {influencer_user.first_name} ('{influencer.display_name}') regarding contract: '{contract.title}' has been successfully submitted.\n\n"
+                   f"Your feedback helps other brands make informed decisions and helps influencers improve their services.\n\n"
+                   f"Thank you for using our platform!",
+            from_email=settings.EMAIL_HOST_USER,
+            recipient_list=[brand_user.email],
+            fail_silently=False,
+        )
+
+
+
+## New message notification(in app notification)
+
+# Signal to create notifications
+@receiver(post_save, sender=Message)
+def create_message_notification(sender, instance, created, **kwargs):
+    if created:
+        recipients = instance.conversation.participants.exclude(id=instance.sender.id)
+        for recipient in recipients:
+            MessageNotification.objects.get_or_create(
+                recipient=recipient,
+                message=instance
+            )

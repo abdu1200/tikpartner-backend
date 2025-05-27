@@ -387,6 +387,7 @@ class ContractOfferSerializer(serializers.ModelSerializer):
     payment_platform_fee = serializers.SerializerMethodField()
     deliverable_id = serializers.SerializerMethodField()
     deliverable_title = serializers.SerializerMethodField()
+    deliverable_feedback = serializers.SerializerMethodField()
     deliverable_description = serializers.SerializerMethodField()
     deliverable_deadline = serializers.SerializerMethodField()
     deliverable_submitted_at = serializers.SerializerMethodField()
@@ -422,6 +423,7 @@ class ContractOfferSerializer(serializers.ModelSerializer):
             'deliverable_description',
             'deliverable_deadline',
             'deliverable_status',
+            'deliverable_feedback',
             'deliverable_submitted_at',
             'deliverable_approved_at',
             'deliverable_revised_at',
@@ -457,6 +459,9 @@ class ContractOfferSerializer(serializers.ModelSerializer):
 
     def get_deliverable_status(self, obj):
         return getattr(obj.deliverable, 'status', '')
+
+    def get_deliverable_feedback(self, obj):
+        return getattr(obj.deliverable, 'feedback', '')
     
     def get_deliverable_submitted_at(self, obj):
         return getattr(obj.deliverable, 'submitted_at', '')

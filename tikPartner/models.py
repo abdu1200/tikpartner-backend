@@ -95,6 +95,16 @@ class Message(models.Model):
         return f"Message from {self.sender.username} in Conversation {self.conversation.id}"
 
 
+# Simple notification model for notifying new messages
+class MessageNotification(models.Model):
+    recipient = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='message_notifications')
+    message = models.ForeignKey(Message, on_delete=models.CASCADE)
+    is_read = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+    
+    class Meta:
+        ordering = ['-created_at']
+        unique_together = ['recipient', 'message']
 
 
 
@@ -121,6 +131,7 @@ class Deliverable(models.Model):
         ('pending', 'Pending'),
         ('submitted', 'Submitted'),
         ('revision', 'Revision Required'),
+        ('updated', 'Updated'),
         ('approved', 'Approved'),
     )
 
@@ -128,11 +139,11 @@ class Deliverable(models.Model):
     title = models.CharField(max_length=255)
     description = models.TextField(blank=True)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
-    #feedback = models.TextField(blank=True)
+    feedback = models.TextField(blank=True)
     deadline = models.DateTimeField(null=True, blank=True)
-    submitted_at = models.DateTimeField(null=True, blank=True)
-    resubmitted_at = models.DateTimeField(null=True, blank=True)
-    revised_at = models.DateTimeField(null=True, blank=True)   #set by the influencer
+    submitted_at = models.DateTimeField(null=True, blank=True)   # submitted status & submitted_at goes together
+    resubmitted_at = models.DateTimeField(null=True, blank=True)   
+    revised_at = models.DateTimeField(null=True, blank=True)   #set by the influencer  #updated status & revised_at goes together
     approved_at = models.DateTimeField(null=True, blank=True)  #set by the brand
 
     def __str__(self):

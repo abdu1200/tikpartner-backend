@@ -11,7 +11,7 @@ from rest_framework.decorators import action
 from rest_framework.parsers import MultiPartParser, FormParser
 from rest_framework import status
 from rest_framework.views import APIView
-from .models import Category, Language, InfluencerProfile, InfluencerPortfolio, BrandProfile, Conversation, Message, Contract, Deliverable, DeliverableAttachment, Payment, Review, Dispute
+from .models import Category, Language, InfluencerProfile, InfluencerPortfolio, BrandProfile, Conversation, Message, MessageNotification, Contract, Deliverable, DeliverableAttachment, Payment, Review, Dispute
 from .serializers import CategorySerializer, LanguageSerializer, BrandProfileSerializer, InfluencerProfileSerializer, InfluencerPortfolioSerializer, CreateInfluencerPortfolioSerializer, ConversationSerializer, MessageSerializer, ContractSerializer, ContractDetailSerializer, ContractCreateSerializer, ContractOfferSerializer, DeliverableSerializer, DeliverableDetailSerializer, SubmitDeliverableSerializer, PaymentSerializer, PaymentDetailSerializer, ReviewSerializer, DisputeSerializer
 from .services.escrow_service import EscrowService
 from .services.stripe_escrow_service import StripeEscrowService
@@ -264,6 +264,7 @@ class InfluencerStripeOnboardingView(APIView):
 
 User = get_user_model()
 
+## CONVERSATION VIEW SET
 class ConversationViewSet(ModelViewSet):
     #queryset = Conversation.objects.all()
     serializer_class = ConversationSerializer
@@ -348,6 +349,38 @@ class MessageViewSet(ModelViewSet):
     #     if message.sender != request.user:
     #         return Response({'error': 'You can only delete your own messages'}, status=status.HTTP_403_FORBIDDEN)
     #     return super().destroy(request, *args, **kwargs)
+
+
+
+class NotificationListView(APIView):
+    permission_classes = [IsAuthenticated]
+    
+    def get(self, request):
+        notifications = MessageNotification.objects.filter(
+            recipient=request.user,
+            is_read=False
+        ).select_related('message__sender', 'message__conversation')[:10]
+        
+        data = [{
+            'id': n.id,
+            'sender': n.message.sender.username,
+            'content': n.message.content[:50] + ('...' if len(n.message.content) > 50 else ''),
+            'created_at': n.created_at.isoformat(),
+            'conversation_id': n.message.conversation.id
+        } for n in notifications]
+        
+        return Response({'notifications': data, 'count': len(data)})
+
+class MarkNotificationsReadView(APIView):
+    permission_classes = [IsAuthenticated]
+    
+    def post(self, request):
+        notification_ids = request.data.get('ids', [])
+        MessageNotification.objects.filter(
+            recipient=request.user,
+            id__in=notification_ids
+        ).update(is_read=True)
+        return Response({'status': 'success'})
 
 
 
@@ -539,7 +572,7 @@ class ContractsOnRevisionViewset(ModelViewSet):   #revision contracts
                 is_signed_by_brand=True,
                 is_signed_by_influencer=True,
                 payment__status='in_escrow',
-                deliverable__status='revision',
+                deliverable__status__in=['revision', 'updated']
             )
         elif hasattr(user, 'influencer_profile'):
             return Contract.objects.filter(
@@ -547,7 +580,7 @@ class ContractsOnRevisionViewset(ModelViewSet):   #revision contracts
                 is_signed_by_brand=True,
                 is_signed_by_influencer=True,
                 payment__status='in_escrow',
-                deliverable__status='revision',
+                deliverable__status__in=['revision', 'updated']
             )
         return Contract.objects.none()
 
@@ -634,7 +667,6 @@ class DeliverableViewSet(ModelViewSet):
         instance = self.get_object()
         status_value = request.data.get("status")
 
-        # If setting to 'revision', delete attachments
         if status_value == "revision":
             instance.status = "revision"
             instance.attachments.all().delete()
