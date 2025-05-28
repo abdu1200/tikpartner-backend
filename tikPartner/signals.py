@@ -52,7 +52,11 @@ def notify_payment_status_change(sender, instance, created, **kwargs):
         # Notify influencer that funds are in escrow
         send_mail(
             subject="Payment is Secured in Escrow",
-            message=f"Hello {influencer.user.first_name} from '{influencer.display_name}',\n\nGood news! ${instance.amount} has been placed in escrow for contract: '{contract.title}' by {brand.user.first_name} from '{brand.company_name}'.\n\nThe funds will be released to you once all deliverables are approved.\n\nThank you for using our platform!",
+            message=f"Hello {influencer.user.first_name} from '{influencer.display_name}',\n\n"
+                    f"Good news! ${instance.amount} has been placed in escrow for contract: '{contract.title}' by {brand.user.first_name} from '{brand.company_name}'.\n\n"
+                    f"The funds will be released to you once you deliver all deliverables and get approved.\n\n"
+                    f"https://tikfrontend-latest.onrender.com/InfActiveContract/{contract.id}"
+                    f"Thank you for using our platform!",
             from_email=settings.EMAIL_HOST_USER,
             recipient_list=[influencer.user.email],
             fail_silently=False,
@@ -119,46 +123,51 @@ def notify_payment_status_change(sender, instance, created, **kwargs):
 _old_contract_status = {}
 
 
-@receiver(pre_save, sender=Contract)
-def store_old_contract_status(sender, instance, **kwargs):
-    """Store the old contract signing status before saving"""
-    if instance.pk:
-        try:
-            old_contract = Contract.objects.get(pk=instance.pk)
-            _old_contract_status[instance.pk] = {
-                'is_signed_by_brand': old_contract.is_signed_by_brand,
-                'is_signed_by_influencer': old_contract.is_signed_by_influencer,
-            }
-        except Contract.DoesNotExist:
-            _old_contract_status[instance.pk] = {
-                'is_signed_by_brand': False,
-                'is_signed_by_influencer': False,
-            }
+# @receiver(pre_save, sender=Contract)
+# def store_old_contract_status(sender, instance, **kwargs):
+#     """Store the old contract signing status before saving"""
+#     print(instance.pk)    ### since we are creating the new contract on the go, it doesn't have a pre save instance
+#     if instance.pk:
+#         try:
+#             old_contract = Contract.objects.get(pk=instance.pk)
+#             _old_contract_status[instance.pk] = {
+#                 'is_signed_by_brand': old_contract.is_signed_by_brand,
+#                 'is_signed_by_influencer': old_contract.is_signed_by_influencer,
+#             }
+#             print( old_contract.is_signed_by_brand)
+#         except Contract.DoesNotExist:   
+#             _old_contract_status[instance.pk] = {
+#                 'is_signed_by_brand': False,
+#                 'is_signed_by_influencer': False,
+#             }
 
 
 @receiver(post_save, sender=Contract)
 def notify_contract_signing_changes(sender, instance, created, **kwargs):
     """Send email notifications when contract signing status changes"""
-    
+    print(f"Contract signal fired: {instance.pk}, created: {created}")
     # Skip notifications for newly created contracts
-    if created:
-        return
+    # if created:
+    #     return
     
-    old_status = _old_contract_status.pop(instance.pk, None)
-    if not old_status:
-        return
+    # old_status = _old_contract_status.pop(instance.pk, None)
+    # print(old_status)
+
+    # if not old_status:
+    #     return
     
     brand = instance.brand
     influencer = instance.influencer
     
     # Check if brand just signed the contract(sent a contract)
-    if not old_status['is_signed_by_brand'] and instance.is_signed_by_brand:
+    if created and instance.is_signed_by_brand:
         # Notify influencer that brand signed(sent a contract)
         send_mail(
             subject="Contract Sent by Brand",
             message=f"Hello {influencer.user.first_name} (from '{influencer.display_name}'),\n\n"
                    f"Great news! {brand.user.first_name} from '{brand.company_name}' has signed the contract: '{instance.title}'.\n\n"
                    f"Please review and sign/accept the contract to proceed with the collaboration.\n\n"
+                   f"https://tikfrontend-latest.onrender.com/InfRequestedOffer/{instance.pk}\n\n "
                    f"Thank you for using our platform!",
             from_email=settings.EMAIL_HOST_USER,
             recipient_list=[influencer.user.email],
@@ -178,13 +187,14 @@ def notify_contract_signing_changes(sender, instance, created, **kwargs):
         )
     
     # Check if influencer just signed/accepted the contract
-    if not old_status['is_signed_by_influencer'] and instance.is_signed_by_influencer:
+    if not created and instance.is_signed_by_influencer:
         # Notify brand that influencer signed/accepted the contract
         send_mail(
             subject="Contract Signed/accepted by Influencer",
             message=f"Hello {brand.user.first_name} (from '{brand.company_name}'),\n\n"
                    f"Excellent! {influencer.user.first_name} from '{influencer.display_name}' has signed/accepted the contract: '{instance.title}'.\n\n"
                    f"Now you can deposit the fund to escrow and the collaboration can begin.\n\n"
+                   f"https://tikfrontend-latest.onrender.com/AcceptedOffer/{instance.pk}\n\n"
                    f"Thank you for using our platform!",
             from_email=settings.EMAIL_HOST_USER,
             recipient_list=[brand.user.email],
@@ -248,6 +258,7 @@ def notify_deliverable_status_change(sender, instance, created, **kwargs):
             message=f"Hello {brand.user.first_name} (from '{brand.company_name}'),\n\n"
                    f"{influencer.user.first_name} from '{influencer.display_name}' has submitted the deliverable: '{instance.title}' for contract: '{contract.title}'.\n\n"
                    f"Please review the submission and provide your approval.\n\n"
+                   f"https://tikfrontend-latest.onrender.com/ApproveWork/{contract.id}"
                    f"Thank you for using our platform!",
             from_email=settings.EMAIL_HOST_USER,
             recipient_list=[brand.user.email],
@@ -272,7 +283,8 @@ def notify_deliverable_status_change(sender, instance, created, **kwargs):
             subject="Revision Required for Your Deliverable",
             message=f"Hello {influencer.user.first_name} (from '{influencer.display_name}'),\n\n"
                    f"{brand.user.first_name} from '{brand.company_name}' has requested revisions for deliverable: '{instance.title}' (Contract: '{contract.title}').\n\n"
-                   f"Please revise the work and submit the updated work.\n\n"
+                   f"Please revise the work based on the requested changes and submit the updated work.\n\n"
+                   f"https://tikfrontend-latest.onrender.com/InfRevisionContract/{contract.id}"
                    f"Thank you for using our platform!",
             from_email=settings.EMAIL_HOST_USER,
             recipient_list=[influencer.user.email],
@@ -300,6 +312,7 @@ def notify_deliverable_status_change(sender, instance, created, **kwargs):
             message=f"Hello {brand.user.first_name} (from '{brand.company_name}'),\n\n"
                    f"{influencer.user.first_name} from '{influencer.display_name}' has resubmitted/updated the deliverable: '{instance.title}' for contract: '{contract.title}' with your requested revisions.\n\n"
                    f"Please review the updated submission.\n\n"
+                   f"https://tikfrontend-latest.onrender.com/RevisionContract/{contract.id}"
                    f"Thank you for using our platform!",
             from_email=settings.EMAIL_HOST_USER,
             recipient_list=[brand.user.email],
@@ -360,6 +373,7 @@ def notify_review_changes(sender, instance, created, **kwargs):
             message=f"Hello {influencer_user.first_name} (from '{influencer.display_name}'),\n\n"
                    f"You have received a new {instance.rating}-star review {stars} from {brand_user.first_name} ('{brand.company_name}') for the contract: '{contract.title}'.\n\n"
                    f"Review: \"{instance.review_text or 'No review text.'}\"\n\n"
+                   f"https://tikfrontend-latest.onrender.com/InfReviewedContract/{contract.id}"
                    f"This review helps build your reputation on our platform.\n\n"
                    f"Thank you for using our platform!",
             from_email=settings.EMAIL_HOST_USER,

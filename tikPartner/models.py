@@ -32,8 +32,13 @@ class InfluencerProfile(models.Model):
     gender = models.CharField(max_length=6, choices=GENDER_CHOICES, null=True, blank=True)
     languages = models.ManyToManyField(Language, related_name='influencers') 
     budget = models.CharField(max_length=30, blank=True)
+
     stripe_account_id = models.CharField(max_length=255, blank=True, null=True)
     onboarded = models.BooleanField(default=False)
+
+    is_subscribed = models.BooleanField(default=False)
+    subscription_plan = models.CharField(max_length=20, choices=[('basic', 'Basic'), ('pro', 'Pro')], null=True, blank=True)
+    subscription_start_date = models.DateTimeField(null=True, blank=True)
 
     # TikTok Specific
     tiktok_username = models.CharField(max_length=30, unique=True)

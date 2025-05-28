@@ -229,8 +229,8 @@ CORS_ALLOW_CREDENTIALS = True
 EMAIL_HOST = 'smtp.gmail.com'    #we're using Gmail's email(smtp) server for sending emails from our django app
 EMAIL_PORT = 587    # Port for TLS  
 EMAIL_USE_TLS = True    # Use TLS for security
-EMAIL_HOST_USER = "abdukmom03@gmail.com"     # Your Gmail address
-EMAIL_HOST_PASSWORD = "zhvy gnbx puqo rnzy"   # Your Gmail app password (use app password for Gmail)
+EMAIL_HOST_USER = "tikpartner03@gmail.com"     # Your Gmail address
+EMAIL_HOST_PASSWORD = "owcv jgyu vbcw uuwf"   # Your Gmail app password (use app password for Gmail, go to your GoogleAccount and search it)
 
 # Email backend configuration
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
@@ -242,6 +242,7 @@ DEFAULT_FROM_EMAIL = EMAIL_HOST_USER   # This will be used as the default "from"
 
 STRIPE_SECRET_KEY = 'sk_test_51PPN5NRt8NVEmh7TUCUTWM3Zc1y4GZg4REs2knS1PTgj3ZG0pCURneFxbhkjbIBwT5G5puYbTG7Gvy15p78raaUt00cBkYj4Mi'
 STRIPE_PUBLISHABLE_KEY = 'pk_test_51PPN5NRt8NVEmh7T5gwdm6cP4qAfXlKy8pwcMiEb4NtuBnGL8w9farKjO5t4SqBzFeT7O5e1j21KkCTrLjOFdhQA00LakRPJSZ'
+STRIPE_WEBHOOK_SECRET = 'whsec_BEPjIaWFUdRzGgiDJRLpNSHN1l3d18bl' 
 # STRIPE_SECRET_KEY = os.getenv('STRIPE_SECRET_KEY')
 # STRIPE_PUBLISHABLE_KEY = os.getenv('STRIPE_PUBLISHABLE_KEY') 
 
@@ -268,3 +269,5 @@ cloudinary.config(
     api_key="853862792599424",
     api_secret="J7yRB_qkLa-kOXZ_gSEA9V-k27s",
 )
+
+FRONTEND_URL = "https://tikfrontend-latest.onrender.com"

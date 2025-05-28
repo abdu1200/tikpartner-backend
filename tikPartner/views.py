@@ -1,5 +1,5 @@
 from django.shortcuts import render
-from django.db.models import Count
+from django.db.models import Count, Case, When, IntegerField
 from django.contrib.auth import get_user_model
 from django.utils import timezone
 from django.conf import settings
@@ -18,6 +18,9 @@ from .services.stripe_escrow_service import StripeEscrowService
 import stripe
 import requests
 from urllib.parse import urlencode
+from django.core.mail import send_mail
+from datetime import datetime, timedelta
+import logging
 
 stripe.api_key = settings.STRIPE_SECRET_KEY
 
@@ -39,10 +42,20 @@ class LanguageViewSet(ModelViewSet):
 
 
 class InfluencerUserViewSet(ModelViewSet):
-    queryset = InfluencerProfile.objects.all()
+    #queryset = InfluencerProfile.objects.all()
     serializer_class = InfluencerProfileSerializer
     http_method_names = ['get', 'post', 'put', 'patch', 'delete'] 
 
+    def get_queryset(self):
+        # Order influencers: Pro first, Basic second, non-subscribers last
+        return InfluencerProfile.objects.annotate(
+            subscription_priority=Case(
+                When(subscription_plan='pro', then=1),
+                When(subscription_plan='basic', then=2),
+                default=3,
+                output_field=IntegerField(),
+            )
+        ).order_by('subscription_priority', '-follower_count')
 
     def get_permissions(self):
         if self.action == 'create':
@@ -178,7 +191,7 @@ class InfluencerStripeOnboardingView(APIView):
                 account_link = stripe.AccountLink.create(    # here we are generating a new onboarding link(refresh link) for an influencer who already has a Stripe account, incase the previous onboarding(connecting bank accounts with the created Stripe account) was not completed successfully.
                     account=influencer.stripe_account_id,
                     refresh_url=f"{settings.FRONTEND_URL}/onboarding/stripe/refresh",
-                    return_url=f"https://tikfrontend-latest.onrender.com/StripeSuccessPage",
+                    return_url=f"{settings.FRONTEND_URL}/StripeSuccessPage",
                     type="account_onboarding",
                 )
                 return Response({"url": account_link.url})   # here we are sending the generated onboarding link(refresh link this time) to the client(influencer)
@@ -1188,3 +1201,136 @@ class TikTokAuthView(APIView):
             return Response({"error": "Invalid response from TikTok", "details": str(e)}, 
                           status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
+
+
+## for subscription
+class CreateCheckoutSessionView(APIView):  # this is for creating a checkout session when the user clicks 'subscribe' on the frontend
+    permission_classes = [IsAuthenticated]
+    
+    def post(self, request):
+        try:
+            price_id = request.data.get('price_id')
+            
+            if not price_id:
+                return Response(
+                    {'error': 'Price ID is required'}, 
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            
+            # success_url=f"{settings.FRONTEND_URL}/subscription-success?session_id={{CHECKOUT_SESSION_ID}}",  # if the subscription is complete(if the checkout session is completed or if the money is paid)
+            
+            # Create Stripe checkout session
+            checkout_session = stripe.checkout.Session.create(
+                payment_method_types=['card'],
+                line_items=[{
+                    'price': price_id,
+                    'quantity': 1,
+                }],
+                mode='subscription',
+                success_url=f"{settings.FRONTEND_URL}/MySubscriptionPage",
+                cancel_url=f"{settings.FRONTEND_URL}/subscriptions",
+                customer_email=request.user.email,
+                metadata={
+                    'user_id': request.user.id,
+                }
+            )
+            
+            return Response({
+                'url': checkout_session.url,  # for the frontend to use to shoot the stripe checkout form
+                'session_id': checkout_session.id
+            })
+            
+        except stripe.error.StripeError as e:
+            return Response(
+                {'error': str(e)}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        except Exception as e:
+            import traceback
+            traceback.print_exc()
+            return Response({'error': str(e)}, status=500)
+
+
+
+logger = logging.getLogger(__name__)
+
+class StripeWebhookView(APIView):  # this is a stripe webhook, it listens to subscription events, like its used for when the checkout session is completed(or subscription is completed/paid)
+    permission_classes = []
+    
+    def post(self, request):
+        payload = request.body
+        sig_header = request.META.get('HTTP_STRIPE_SIGNATURE')
+        endpoint_secret = settings.STRIPE_WEBHOOK_SECRET
+        
+        try:
+            event = stripe.Webhook.construct_event(
+                payload, sig_header, endpoint_secret
+            )
+        except ValueError:
+            return Response(status=400)
+        except stripe.error.SignatureVerificationError:
+            return Response(status=400)
+        
+        # Handle the event
+        if event['type'] == 'checkout.session.completed':
+            session = event['data']['object']
+            # Handle successful subscription
+            self.handle_subscription_success(session)   # this calls the webhook handler that updates the database of influencer user and sends email
+        
+        return Response(status=200)
+    
+
+    def handle_subscription_success(self, session):
+        try:
+            logger.info(f"Starting webhook for session: {session.get('id')}")
+            
+            # Get the price ID from the session to determine plan
+            line_items = stripe.checkout.Session.list_line_items(session['id'])
+            price_id = line_items.data[0].price.id
+            logger.info(f"Price ID: {price_id}")
+            
+            # Map price IDs to plan names
+            plan_mapping = {
+                'price_1RTgh8Rt8NVEmh7TSprcxTFh': 'basic',
+                'price_1RThTKRt8NVEmh7TwDnzxEmL': 'pro', 
+            }
+            
+            user_id = session['metadata']['user_id']
+            logger.info(f"User ID: {user_id}")
+            
+            influencer = InfluencerProfile.objects.get(user_id=user_id)
+            influencer.is_subscribed = True
+            influencer.subscription_plan = plan_mapping.get(price_id)
+            influencer.subscription_start_date = timezone.now()
+            influencer.save()
+            
+            logger.info(f"Database updated for user {user_id}")
+            
+
+            # Calculate the end date (30 days from now)
+            end_date = datetime.now() + timedelta(days=30)
+            formatted_end_date = end_date.strftime("%B %d, %Y")  # e.g., "June 27, 2025"
+
+            # Separate email handling
+            try:
+                send_mail(
+                    subject="Subscription Activated",
+                    message=f"hello {influencer.user.first_name}, you have successfully subscribed to the {influencer.subscription_plan} Plan.\n\n"
+                            f"Your subscription will end on {formatted_end_date}.\n\n"
+                            f"Thank you for subscribing, Enjoy!",
+                    from_email=settings.EMAIL_HOST_USER,
+                    recipient_list=[influencer.user.email],
+                    fail_silently=False,
+                )
+                logger.info(f"Email sent to {influencer.user.email}")
+            except Exception as e:
+                logger.error(f"Email failed: {e}")
+                
+        except (KeyError, InfluencerProfile.DoesNotExist) as e:
+            logger.error(f"Webhook error: {e}")
+            return Response(status=400)
+        except Exception as e:
+            logger.error(f"Unexpected webhook error: {e}")
+            return Response(status=500)
+
+# when the checkout session is completed, stripe webhook listens to that and stripe makes the request to the 'api/webhooks/stripe/' endpoint in django and django(the StripeWebhookView) receives it and uses the stripe webhook secrect to verify its from stripe. and if so, it calls its webhook handler to update the database...
