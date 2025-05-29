@@ -42,7 +42,7 @@ class InfluencerProfileSerializer(serializers.ModelSerializer):
             'id', 'user', 'category', 'gender', 'languages', 'budget',
             'tiktok_username', 'avatar_url', 'display_name',
             'follower_count', 'video_count', 'likes_count',
-            'stripe_account_id', 'is_subscribed', 'subscription_plan', 'subscription_start_date'
+            'stripe_account_id', 'is_subscribed', 'subscription_plan', 'subscription_start_date', 'onboarded'
         ]
 
 

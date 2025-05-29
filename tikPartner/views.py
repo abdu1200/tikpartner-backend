@@ -191,7 +191,7 @@ class InfluencerStripeOnboardingView(APIView):
                 account_link = stripe.AccountLink.create(    # here we are generating a new onboarding link(refresh link) for an influencer who already has a Stripe account, incase the previous onboarding(connecting bank accounts with the created Stripe account) was not completed successfully.
                     account=influencer.stripe_account_id,
                     refresh_url=f"{settings.FRONTEND_URL}/onboarding/stripe/refresh",
-                    return_url=f"{settings.FRONTEND_URL}/StripeSuccessPage",
+                    return_url=f"{settings.FRONTEND_URL}/WelcomePage",
                     type="account_onboarding",
                 )
                 return Response({"url": account_link.url})   # here we are sending the generated onboarding link(refresh link this time) to the client(influencer)
@@ -223,7 +223,7 @@ class InfluencerStripeOnboardingView(APIView):
             account_link = stripe.AccountLink.create(
                 account=account.id,
                 refresh_url=f"{settings.FRONTEND_URL}/onboarding/stripe/refresh",
-                return_url=f"https://tikfrontend-latest.onrender.com/StripeSuccessPage",   # The return_url is where Stripe sends the user after they finish the onboarding process. # It's usually a page on your website that confirms(success or fail) their Stripe account setup is complete.
+                return_url=f"{settings.FRONTEND_URL}/WelcomePage",   # The return_url is where Stripe sends the user after they finish the onboarding process. # It's usually a page on your website that confirms(success or fail) their Stripe account setup is complete.
                 type="account_onboarding",
             )
                 # The refresh_url is where Stripe sends the user if they click "refresh" or something goes wrong during onboarding (like a session timeout).
