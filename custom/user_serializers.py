@@ -4,11 +4,12 @@ from django.contrib.auth import get_user_model
 
 class CustomUserSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True)
-
+    profile_picture = serializers.ImageField(required=False)
+    
     class Meta:
         model = get_user_model()
         fields = ['id', 'username', 'email', 'first_name', 'last_name', 'phone_number', 
-                  'user_type', 'is_verified', 'bio', 'profile_picture', 'location', 'password']
+                  'user_type', 'bio', 'profile_picture', 'location', 'password']
         extra_kwargs = {
             'username': {'validators': []},  # Remove unique validator # this ONLY removes the unique validator applied by Django's 'unique=True' constraint on the model
             'email': {'validators': []}      # Remove unique validator  # it doesn't affect Required field validation and Field type validation(like valid email format)

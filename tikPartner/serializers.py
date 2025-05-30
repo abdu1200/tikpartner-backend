@@ -205,7 +205,7 @@ class BrandProfileSerializer(serializers.ModelSerializer):
     class Meta:
         model = BrandProfile
         fields = ['id', 'user', 'category', 'company_name', 'website', 
-                  'company_size', 'verification_documents']
+                  'company_size']
 
     
 

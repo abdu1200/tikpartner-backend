@@ -21,8 +21,9 @@ from urllib.parse import urlencode
 from django.core.mail import send_mail
 from datetime import datetime, timedelta
 import logging
-
 stripe.api_key = settings.STRIPE_SECRET_KEY
+
+logger = logging.getLogger(__name__)
 
 # Create your views here.
 
@@ -43,8 +44,8 @@ class LanguageViewSet(ModelViewSet):
 
 class InfluencerUserViewSet(ModelViewSet):
     #queryset = InfluencerProfile.objects.all()
-    serializer_class = InfluencerProfileSerializer
-    http_method_names = ['get', 'post', 'put', 'patch', 'delete'] 
+    serializer_class = InfluencerProfileSerializer 
+    parser_classes = [MultiPartParser, FormParser]  # Enable file upload parsing for update profile picture
 
     def get_queryset(self):
         # Order influencers: Pro first, Basic second, non-subscribers last
@@ -77,20 +78,57 @@ class InfluencerUserViewSet(ModelViewSet):
             return Response({"error": str(e)}, status=400)
 
 
-    @action(detail=False, methods=['GET', 'PUT'], permission_classes=[IsAuthenticated])
+    @action(detail=False, methods=['GET', 'PUT', 'PATCH'], permission_classes=[IsAuthenticated]) #we used PATCH for the profile update
     def me(self, request):
         try:
             profile = InfluencerProfile.objects.get(user=request.user)
+            
             if request.method == 'GET':
-                serializer = self.get_serializer(profile) #to serializer model instance to json format
-                return Response(serializer.data)   #serializer.data is a dictionary #but Response(serializer.data) returns a json to a client
-            elif request.method == 'PUT':
-                serializer = self.get_serializer(profile, data=request.data, partial=True) #to deserialize api request data from json to object instance #and making the profile instance ready for update
+                serializer = self.get_serializer(profile)
+                return Response(serializer.data)
+            
+            elif request.method in ['PUT', 'PATCH']:
+                # Log incoming data for debugging
+                logger.info(f"Received data: {request.data}")
+                logger.info(f"Files: {request.FILES}")
+                
+                # Parse nested form data
+                user_data = {}
+                profile_data = {}
+                
+                for key, value in request.data.items():
+                    if key.startswith('user[') and key.endswith(']'):
+                        # Extract user field name
+                        field_name = key[5:-1]  # Remove 'user[' and ']'
+                        user_data[field_name] = value
+                    else:
+                        profile_data[key] = value
+                
+                # Handle file uploads
+                for key, file in request.FILES.items():
+                    if key.startswith('user[') and key.endswith(']'):
+                        field_name = key[5:-1]
+                        user_data[field_name] = file
+                    else:
+                        profile_data[key] = file
+                
+                # Prepare data for serializer
+                serializer_data = profile_data.copy()
+                if user_data:
+                    serializer_data['user'] = user_data
+                
+                logger.info(f"Processed data: {serializer_data}")
+                
+                serializer = self.get_serializer(profile, data=serializer_data, partial=True)
                 serializer.is_valid(raise_exception=True)
                 serializer.save()
                 return Response(serializer.data)
+                
         except InfluencerProfile.DoesNotExist:
             return Response({"error": "Influencer profile not found"}, status=404)
+        except Exception as e:
+            logger.error(f"Error in me endpoint: {str(e)}")
+            return Response({"error": str(e)}, status=500)
 
 
 
@@ -131,7 +169,8 @@ class InfluencerPortfolioViewSet(ModelViewSet):
 class BrandUserViewSet(ModelViewSet):
     queryset = BrandProfile.objects.all()
     serializer_class = BrandProfileSerializer
-
+    parser_classes = [MultiPartParser, FormParser]  # Enable file upload parsing
+    
     def get_permissions(self):
         if self.action == 'create':
             return [AllowAny()]
@@ -142,30 +181,67 @@ class BrandUserViewSet(ModelViewSet):
         return [AllowAny()]
 
     def destroy(self, request, *args, **kwargs):
-        try:   #this is to delete the user when deleting its associated brand profile right away
+        try:
             instance = self.get_object()
-            user = instance.user  # capture user BEFORE deleting the instance(brand profile)
-            instance.delete()     # delete the InfluencerProfile
-            user.delete()         # delete the associated User
+            user = instance.user
+            instance.delete()
+            user.delete()
             return Response(status=204)
         except Exception as e:
+            logger.error(f"Error deleting brand profile: {str(e)}")
             return Response({"error": str(e)}, status=400)
 
-    @action(detail=False, methods=['GET', 'PUT'], permission_classes=[IsAuthenticated])
+    @action(detail=False, methods=['GET', 'PUT', 'PATCH'], permission_classes=[IsAuthenticated])
     def me(self, request):
         try:
             profile = BrandProfile.objects.get(user=request.user)
+            
             if request.method == 'GET':
                 serializer = self.get_serializer(profile)
                 return Response(serializer.data)
-            elif request.method == 'PUT':
-                serializer = self.get_serializer(profile, data=request.data, partial=True)
+            
+            elif request.method in ['PUT', 'PATCH']:
+                # Log incoming data for debugging
+                logger.info(f"Received data: {request.data}")
+                logger.info(f"Files: {request.FILES}")
+                
+                # Parse nested form data
+                user_data = {}
+                profile_data = {}
+                
+                for key, value in request.data.items():
+                    if key.startswith('user[') and key.endswith(']'):
+                        # Extract user field name
+                        field_name = key[5:-1]  # Remove 'user[' and ']'
+                        user_data[field_name] = value
+                    else:
+                        profile_data[key] = value
+                
+                # Handle file uploads
+                for key, file in request.FILES.items():
+                    if key.startswith('user[') and key.endswith(']'):
+                        field_name = key[5:-1]
+                        user_data[field_name] = file
+                    else:
+                        profile_data[key] = file
+                
+                # Prepare data for serializer
+                serializer_data = profile_data.copy()
+                if user_data:
+                    serializer_data['user'] = user_data
+                
+                logger.info(f"Processed data: {serializer_data}")
+                
+                serializer = self.get_serializer(profile, data=serializer_data, partial=True)
                 serializer.is_valid(raise_exception=True)
                 serializer.save()
                 return Response(serializer.data)
+                
         except BrandProfile.DoesNotExist:
             return Response({"error": "Brand profile not found"}, status=404)
-
+        except Exception as e:
+            logger.error(f"Error in me endpoint: {str(e)}")
+            return Response({"error": str(e)}, status=500)
 
 
 # Handle Stripe Connect onboarding for influencers
@@ -1252,7 +1328,7 @@ class CreateCheckoutSessionView(APIView):  # this is for creating a checkout ses
 
 
 
-logger = logging.getLogger(__name__)
+
 
 class StripeWebhookView(APIView):  # this is a stripe webhook, it listens to subscription events, like its used for when the checkout session is completed(or subscription is completed/paid)
     permission_classes = []

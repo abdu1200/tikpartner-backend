@@ -1,6 +1,7 @@
 from django.db import models
 from django.contrib.auth.models import AbstractUser
 from .managers import CustomUserManager
+from cloudinary.models import CloudinaryField
 
 # Create your models here.
 
@@ -13,11 +14,11 @@ class CustomUser(AbstractUser):  #This one is to be used in the settings.py by A
     user_type = models.CharField(max_length=10, choices=USER_TYPES)
     email = models.EmailField(unique=True)
     phone_number = models.CharField(max_length=15, blank=True)
-    is_verified = models.BooleanField(default=False)
+    #is_verified = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     bio = models.TextField(blank=True)
-    profile_picture = models.ImageField(upload_to='user_profiles/', blank=True, null=True)
+    profile_picture = CloudinaryField('profile-picture', blank=True, null=True)
     location = models.CharField(max_length=100, blank=True)
 
 

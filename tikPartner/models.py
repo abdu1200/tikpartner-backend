@@ -71,7 +71,7 @@ class BrandProfile(models.Model):
     company_name = models.CharField(max_length=255)
     website = models.URLField(blank=True)
     company_size = models.CharField(max_length=50)
-    verification_documents = models.FileField(upload_to='verification_docs/', blank=True)
+    #verification_documents = models.FileField(upload_to='verification_docs/', blank=True)
 
     def __str__(self):
         return self.user.email
