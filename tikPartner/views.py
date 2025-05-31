@@ -11,8 +11,8 @@ from rest_framework.decorators import action
 from rest_framework.parsers import MultiPartParser, FormParser
 from rest_framework import status
 from rest_framework.views import APIView
-from .models import Category, Language, InfluencerProfile, InfluencerPortfolio, BrandProfile, Conversation, Message, MessageNotification, Contract, Deliverable, DeliverableAttachment, Payment, Review, Dispute
-from .serializers import CategorySerializer, LanguageSerializer, BrandProfileSerializer, InfluencerProfileSerializer, InfluencerPortfolioSerializer, CreateInfluencerPortfolioSerializer, ConversationSerializer, MessageSerializer, ContractSerializer, ContractDetailSerializer, ContractCreateSerializer, ContractOfferSerializer, DeliverableSerializer, DeliverableDetailSerializer, SubmitDeliverableSerializer, PaymentSerializer, PaymentDetailSerializer, ReviewSerializer, DisputeSerializer
+from .models import Category, Language, InfluencerProfile, InfluencerPortfolio, BrandProfile, Conversation, Message, MessageNotification, Contract, Deliverable, DeliverableAttachment, Payment, Review, Dispute, DisputeAttachment
+from .serializers import CategorySerializer, LanguageSerializer, BrandProfileSerializer, InfluencerProfileSerializer, InfluencerPortfolioSerializer, CreateInfluencerPortfolioSerializer, ConversationSerializer, MessageSerializer, ContractSerializer, ContractDetailSerializer, ContractCreateSerializer, ContractOfferSerializer, DeliverableSerializer, DeliverableDetailSerializer, SubmitDeliverableSerializer, PaymentSerializer, PaymentDetailSerializer, ReviewSerializer, DisputeSerializer, SubmitDisputeSerializer, DisputeDetailSerializer
 from .services.escrow_service import EscrowService
 from .services.stripe_escrow_service import StripeEscrowService
 import stripe
@@ -826,28 +826,6 @@ class DeliverableViewSet(ModelViewSet):
 
 
 
-    # @action(detail=True, methods=['post'])
-    # def review(self, request, pk=None):
-    #     deliverable = self.get_object()
-    #     user = request.user
-        
-    #     if not hasattr(user, 'brand_profile') or user.brand_profile != deliverable.contract.brand:
-    #         return Response({"error": "Only the brand can review deliverables"}, 
-    #                         status=status.HTTP_403_FORBIDDEN)
-        
-    #     status_choice = request.data.get('status')
-    #     feedback = request.data.get('feedback', '')
-        
-    #     if status_choice not in ['approved', 'revision']:
-    #         return Response({"error": "Status must be either 'approved' or 'revision'"}, 
-    #                         status=status.HTTP_400_BAD_REQUEST)
-        
-    #     deliverable.status = status_choice
-    #     deliverable.feedback = feedback
-    #     deliverable.save()
-        
-    #     return Response(DeliverableDetailSerializer(deliverable).data)
-
 """
 - DRF handles the initial parsing of request data to a dictionary before it reaches your view. This parsing happens in DRF's request handling pipeline, not in your view.
 - So 'request.data' is a dictionary
@@ -1096,35 +1074,28 @@ class ReviewViewSet(ModelViewSet):
 
 # Dispute Viewset
 class DisputeViewSet(ModelViewSet):
-    queryset = Dispute.objects.all()
-    serializer_class = DisputeSerializer
-    permission_classes = [IsAuthenticated, IsContractParticipant]   # there is the 'IsContractParticipant' class definiton right above ReviewViewSet
+    #queryset = Dispute.objects.all()
+    #serializer_class = DisputeSerializer
+    permission_classes = [IsAuthenticated]  
    
+
+    def get_serializer_class(self):
+        if self.action == 'create':
+            return SubmitDisputeSerializer
+        elif self.action == 'retrieve':
+            return DisputeDetailSerializer
+        return DisputeSerializer
+
     
     def get_queryset(self):
-        user = self.request.user
+        user = self.request.user 
+        queryset = Dispute.objects.filter(initiated_by=user)   
         
-        # Get contracts where the user is involved
-        if hasattr(user, 'brand_profile'):
-            contracts = Contract.objects.filter(brand=user.brand_profile)
-        elif hasattr(user, 'influencer_profile'):
-            contracts = Contract.objects.filter(influencer=user.influencer_profile)
-        else:
-            return Dispute.objects.none()
-            
-        queryset = Dispute.objects.filter(contract__in=contracts)   # so even if you don't initiate any of the disputes, just b/c you're in the contract, if there is any dispute in that contract, you get those dispute instances(in the queryset).
-                                                                    # so You don't have to be the one who initiated the dispute to see it in your queryset.
-        # further Filter the queryset for a specific contract
-        contract_id = self.request.query_params.get('contract_id', None)
-        if contract_id is not None:
-            queryset = queryset.filter(contract_id=contract_id)
-            
         return queryset
+       
+           
     
-    def perform_create(self, serializer):
-        serializer.save(initiated_by=self.request.user)             # the perform_create is used to set extra data in the validated_data before saving the object(before calling the serializer's create method)   # you know in the calling of serializer.save(), the validated_data is being passed to the create method of the serializer
-    
-    def perform_update(self, serializer):                           # like perform_create(), perform_update() is used for handling some kind of checking before saving
+    def perform_update(self, serializer):  # in the peform actions, you can also do some extra checking before calling the save() method 
         instance = self.get_object()
         user = self.request.user
         
@@ -1134,10 +1105,11 @@ class DisputeViewSet(ModelViewSet):
         if new_status == 'resolved' and not user.is_staff:
             raise PermissionDenied("Only staff members can resolve disputes")
             
-        serializer.save()
+        serializer.save()  # this calls the serializer's update method
 
 
 
+# General Concept: for post, first the normal 'create' action/method(in the viewset) is called by DRF to validate the incoming data by calling the serializer. and then after success validation, peform_create is called by DRF(being passed the validated data) to call the serializer create method(by doing serializer.save() ) to create the data in the db 
 
 
 

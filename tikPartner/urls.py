@@ -1,7 +1,7 @@
 from django.urls import path, include
 #from rest_framework.routers import DefaultRouter
 from rest_framework_nested.routers import DefaultRouter, NestedDefaultRouter
-from .views import CategoryViewSet, LanguageViewSet, InfluencerPortfolioViewSet, ConversationViewSet, MessageViewSet, NotificationListView, MarkNotificationsReadView, ContractViewSet, RequestedOffersViewSet, AcceptedOffersViewSet, ActiveContractsViewSet, ActiveContractsBrandViewSet, ApproveWorksViewSet, ContractsOnRevisionViewset, ReleasedContractsViewset, ReviewedContractsViewset, DeliverableViewSet, PaymentViewSet, InfluencerStripeOnboardingView, ReviewViewSet, TikTokAuthView, CreateCheckoutSessionView, StripeWebhookView
+from .views import CategoryViewSet, LanguageViewSet, InfluencerPortfolioViewSet, ConversationViewSet, MessageViewSet, NotificationListView, MarkNotificationsReadView, ContractViewSet, RequestedOffersViewSet, AcceptedOffersViewSet, ActiveContractsViewSet, ActiveContractsBrandViewSet, ApproveWorksViewSet, ContractsOnRevisionViewset, ReleasedContractsViewset, ReviewedContractsViewset, DeliverableViewSet, PaymentViewSet, InfluencerStripeOnboardingView, ReviewViewSet, DisputeViewSet, TikTokAuthView, CreateCheckoutSessionView, StripeWebhookView
 from drf_yasg.views import get_schema_view
 from drf_yasg import openapi
 
@@ -24,6 +24,7 @@ router.register(r'reviewed_contracts', ReviewedContractsViewset, basename='revie
 router.register(r'deliverables', DeliverableViewSet, basename='deliverable')
 router.register(r'payments', PaymentViewSet, basename='payment')
 router.register(r'reviews', ReviewViewSet, basename='review')
+router.register(r'disputes', DisputeViewSet, basename='dispute')
 
 
 # GET /conversations/1/messages/   GET /conversations/1/messages/5/    DELETE /conversations/1/messages/5/  

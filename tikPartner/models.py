@@ -218,9 +218,8 @@ class Dispute(models.Model):
         ('closed', 'Closed'),
     )
 
-    contract = models.ForeignKey(Contract, on_delete=models.CASCADE, related_name='disputes') #issues might arise at different stages of the collaboration
+    #contract = models.OneToOneField(Contract, on_delete=models.CASCADE, related_name='dispute')
     initiated_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='initiated_disputes')
-    dispute_type = models.CharField(max_length=50)
     description = models.TextField()
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='open')
     created_at = models.DateTimeField(auto_now_add=True)
@@ -228,3 +227,12 @@ class Dispute(models.Model):
 
     def __str__(self):
         return f"Dispute {self.id} - {self.status}"
+
+
+class DisputeAttachment(models.Model):
+    dispute = models.ForeignKey('Dispute', on_delete=models.CASCADE, related_name='attachments')
+    file = CloudinaryField('dispute-file', blank=True, null=True)
+    original_filename = models.CharField(max_length=255, blank=True, null=True)
+
+    def __str__(self):
+        return f"Attachment for {self.dispute.id}"

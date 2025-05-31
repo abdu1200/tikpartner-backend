@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Category, Language, InfluencerProfile, InfluencerPortfolio, BrandProfile, Conversation, Message, Contract, Deliverable, DeliverableAttachment, Payment, Review, Dispute
+from .models import Category, Language, InfluencerProfile, InfluencerPortfolio, BrandProfile, Conversation, Message, Contract, Deliverable, DeliverableAttachment, Payment, Review, Dispute, DisputeAttachment
 from custom.user_serializers import CustomUserSerializer 
 from custom.models import CustomUser
 
@@ -609,7 +609,7 @@ class ReviewSerializer(serializers.ModelSerializer):
         if reviewer.id == reviewee.id:
             raise serializers.ValidationError("You cannot review yourself.")
             
-        return data
+        return data         
     
     def create(self, validated_data):
         validated_data['reviewer'] = self.context['request'].user    # this is because the returned data(validated_data) from the validate method doesn't include the 'reviewer' b/c it only considers the data that came in the payload from the request(so not read only datas)
@@ -617,47 +617,65 @@ class ReviewSerializer(serializers.ModelSerializer):
 
 
 
-# contract_details = serializers.SerializerMethodField() - this is a serializer method field
-
 
 #Dispute serializer
 class DisputeSerializer(serializers.ModelSerializer):
-    initiated_by_name = serializers.CharField(source='initiated_by.username', read_only=True) # serializer custom field
-    contract_details = serializers.SerializerMethodField()   # Serializer method fields are read-only by default. They are only used to display computed structured data in the serialized output(dic or json)
-    
     class Meta:
         model = Dispute
-        fields = [
-            'id', 'contract', 'initiated_by', 'dispute_type',
-            'description', 'status', 'created_at', 'resolved_at',
-            'initiated_by_name', 'contract_details'
-        ]
-        read_only_fields = ['initiated_by', 'created_at', 'resolved_at', 'status']  # we get 'initiated_by' from the user making the request
+        fields = '__all__'
+        read_only_fields = ('created_at', 'resolved_at', 'status', 'initiated_by')
     
-    def get_contract_details(self, obj):    # obj here is the Dispute instance being serialized(the one that is being serialized to dic or json for client)
-        return {
-            'id': obj.contract.id,
-            'brand': obj.contract.brand.company_name,
-            'influencer': obj.contract.influencer.tiktok_username
-        }
-    
-    def validate(self, data):
-        # Validate or check that the user is part of the contract
-        contract = data.get('contract')
-        user = self.context['request'].user
-        
-        if not contract:
-            raise serializers.ValidationError("Contract is required")
-            
-        # Check if user is part of the contract
-        if user.id != contract.brand.user.id and user.id != contract.influencer.user.id:
-            raise serializers.ValidationError("You must be a party in the contract to open a dispute on it")
-            
-        return data
-    
-    """
+
+class DisputeAttachmentSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = DisputeAttachment
+        fields = ('id', 'file', 'original_filename')    
+
+
+class DisputeDetailSerializer(serializers.ModelSerializer):
+    attachments = DisputeAttachmentSerializer(many=True, read_only=True)  # related_name='attachments'
+
+    class Meta:
+        model = Dispute
+        fields = (
+            'id', 'initiated_by', 'description',
+            'status', 'created_at', 'resolved_at', 'attachments'
+        )
+
+        read_only_fields = ('created_at', 'resolved_at', 'status', 'initiated_by')
+
+
+
+class SubmitDisputeSerializer(serializers.ModelSerializer):
+    # content_files serializer fields, but they're not from a model. # content_files is a serializer ListField where its children must be FileFields
+    file_proofs = serializers.ListField(     
+        child=serializers.FileField(),
+        required=False,  # Make it optional
+        allow_empty=True
+    )   
+
+    class Meta:
+        model = Dispute
+        fields = ('id', 'initiated_by', 'description', 'status', 'created_at', 'resolved_at', 'file_proofs')
+        read_only_fields = ('created_at', 'resolved_at', 'status', 'initiated_by' )
+
+
     def create(self, validated_data):
-        validated_data['initiated_by'] = self.context['request'].user     # in this case, this line logic is done by the 'perform_create' in the viewset
+        # Remove file_proofs from validated_data since it's not a model field
+        file_proofs = validated_data.pop('file_proofs', [])
         
-        return super().create(validated_data)
-    """
+        # Set the user
+        validated_data['initiated_by'] = self.context['request'].user
+        
+        # Create the dispute
+        dispute = super().create(validated_data) # does the generic ORM for creation in the db
+        
+        # Save the files as attachments
+        for file in file_proofs:
+            DisputeAttachment.objects.create(
+                dispute=dispute,
+                file=file,
+                original_filename=file.name
+            )
+        
+        return dispute
