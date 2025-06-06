@@ -8,7 +8,7 @@ from rest_framework.response import Response
 from rest_framework.permissions import AllowAny, IsAuthenticated, IsAdminUser, BasePermission
 from rest_framework.exceptions import PermissionDenied
 from rest_framework.decorators import action
-from rest_framework.parsers import MultiPartParser, FormParser
+from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
 from rest_framework import status
 from rest_framework.views import APIView
 from .models import Category, Language, InfluencerProfile, InfluencerPortfolio, BrandProfile, Conversation, Message, MessageNotification, Contract, Deliverable, DeliverableAttachment, Payment, Review, Dispute, DisputeAttachment
@@ -45,7 +45,12 @@ class LanguageViewSet(ModelViewSet):
 class InfluencerUserViewSet(ModelViewSet):
     #queryset = InfluencerProfile.objects.all()
     serializer_class = InfluencerProfileSerializer 
-    parser_classes = [MultiPartParser, FormParser]  # Enable file upload parsing for update profile picture
+    #parser_classes = [MultiPartParser, FormParser]  # Enable file upload parsing for update profile picture
+
+    def get_parser_classes(self):
+        if self.action == 'me':
+            return [MultiPartParser, FormParser]   # we're only use this for /me(for profile update) only
+        return [JSONParser]  # we use this when sending normal application/json(normal data that doesn't contain file)
 
     def get_queryset(self):
         # Order influencers: Pro first, Basic second, non-subscribers last
@@ -66,6 +71,19 @@ class InfluencerUserViewSet(ModelViewSet):
         elif self.action in ['list', 'update', 'partial_update', 'destroy']:
             return [AllowAny()]
         return [AllowAny()]    #this block you to see influencer details(specific resource) like 'api/influencers/1/'
+
+
+    def create(self, request, *args, **kwargs):
+        try:
+            print(request.data)
+            return super().create(request, *args, **kwargs)
+        except Exception as e:
+            import traceback
+            print("Error during registration:", e)
+            traceback.print_exc()
+            return Response({'detail': 'Internal server error.'}, status=500)
+
+
 
     def destroy(self, request, *args, **kwargs):
         try:  #this is to delete the user when deleting its associated influencer profile right away
@@ -169,7 +187,12 @@ class InfluencerPortfolioViewSet(ModelViewSet):
 class BrandUserViewSet(ModelViewSet):
     queryset = BrandProfile.objects.all()
     serializer_class = BrandProfileSerializer
-    parser_classes = [MultiPartParser, FormParser]  # Enable file upload parsing
+    #parser_classes = [MultiPartParser, FormParser]  # Enable file upload parsing
+
+    def get_parser_classes(self):
+        if self.action == 'me':
+            return [MultiPartParser, FormParser]   # we're only use this for /me(for profile update) only
+        return [JSONParser]  # we use this when sending normal application/json(normal data that doesn't contain file)
     
     def get_permissions(self):
         if self.action == 'create':
@@ -266,8 +289,8 @@ class InfluencerStripeOnboardingView(APIView):
             try:
                 account_link = stripe.AccountLink.create(    # here we are generating a new onboarding link(refresh link) for an influencer who already has a Stripe account, incase the previous onboarding(connecting bank accounts with the created Stripe account) was not completed successfully.
                     account=influencer.stripe_account_id,
-                    refresh_url=f"{settings.FRONTEND_URL}/onboarding/stripe/refresh",
-                    return_url=f"{settings.FRONTEND_URL}/WelcomePage",
+                    refresh_url=f"{settings.FRONTEND_URL}onboarding/stripe/refresh",
+                    return_url=f"{settings.FRONTEND_URL}StripeSuccessPage",
                     type="account_onboarding",
                 )
                 return Response({"url": account_link.url})   # here we are sending the generated onboarding link(refresh link this time) to the client(influencer)
@@ -298,8 +321,8 @@ class InfluencerStripeOnboardingView(APIView):
             # Create an account link for the onboarding flow for the newly created Stripe account
             account_link = stripe.AccountLink.create(
                 account=account.id,
-                refresh_url=f"{settings.FRONTEND_URL}/onboarding/stripe/refresh",
-                return_url=f"{settings.FRONTEND_URL}/WelcomePage",   # The return_url is where Stripe sends the user after they finish the onboarding process. # It's usually a page on your website that confirms(success or fail) their Stripe account setup is complete.
+                refresh_url=f"{settings.FRONTEND_URL}onboarding/stripe/refresh",
+                return_url=f"{settings.FRONTEND_URL}StripeSuccessPage",   # The return_url is where Stripe sends the user after they finish the onboarding process. # It's usually a page on your website that confirms(success or fail) their Stripe account setup is complete.
                 type="account_onboarding",
             )
                 # The refresh_url is where Stripe sends the user if they click "refresh" or something goes wrong during onboarding (like a session timeout).
@@ -755,9 +778,12 @@ class DeliverableViewSet(ModelViewSet):
     def partial_update(self, request, *args, **kwargs):  # this is for when the 'Revision Required' button is clicked by the brand
         instance = self.get_object()
         status_value = request.data.get("status")
+        feedback = request.data.get("feedback")
 
         if status_value == "revision":
             instance.status = "revision"
+            if feedback is not None:
+                instance.feedback = feedback
             instance.attachments.all().delete()
             instance.save()
             serializer = self.get_serializer(instance)
@@ -1275,8 +1301,8 @@ class CreateCheckoutSessionView(APIView):  # this is for creating a checkout ses
                     'quantity': 1,
                 }],
                 mode='subscription',
-                success_url=f"{settings.FRONTEND_URL}/MySubscriptionPage",
-                cancel_url=f"{settings.FRONTEND_URL}/subscriptions",
+                success_url=f"{settings.FRONTEND_URL}MySubscriptionPage",
+                cancel_url=f"{settings.FRONTEND_URL}MySubscriptionPage",
                 customer_email=request.user.email,
                 metadata={
                     'user_id': request.user.id,

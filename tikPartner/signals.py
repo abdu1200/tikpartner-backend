@@ -55,7 +55,7 @@ def notify_payment_status_change(sender, instance, created, **kwargs):
             message=f"Hello {influencer.user.first_name} from '{influencer.display_name}',\n\n"
                     f"Good news! ${instance.amount} has been placed in escrow for contract: '{contract.title}' by {brand.user.first_name} from '{brand.company_name}'.\n\n"
                     f"The funds will be released to you once you deliver all deliverables and get approved.\n\n"
-                    f"https://tikfrontend-latest.onrender.com/InfActiveContract/{contract.id}"
+                    f"https://tikpartner.duckdns.org/InfActiveContract/{contract.id}\n\n"
                     f"Thank you for using our platform!",
             from_email=settings.EMAIL_HOST_USER,
             recipient_list=[influencer.user.email],
@@ -167,7 +167,7 @@ def notify_contract_signing_changes(sender, instance, created, **kwargs):
             message=f"Hello {influencer.user.first_name} (from '{influencer.display_name}'),\n\n"
                    f"Great news! {brand.user.first_name} from '{brand.company_name}' has signed the contract: '{instance.title}'.\n\n"
                    f"Please review and sign/accept the contract to proceed with the collaboration.\n\n"
-                   f"https://tikfrontend-latest.onrender.com/InfRequestedOffer/{instance.pk}\n\n "
+                   f"https://tikpartner.duckdns.org/InfRequestedOffer/{instance.pk}\n\n "
                    f"Thank you for using our platform!",
             from_email=settings.EMAIL_HOST_USER,
             recipient_list=[influencer.user.email],
@@ -194,7 +194,7 @@ def notify_contract_signing_changes(sender, instance, created, **kwargs):
             message=f"Hello {brand.user.first_name} (from '{brand.company_name}'),\n\n"
                    f"Excellent! {influencer.user.first_name} from '{influencer.display_name}' has signed/accepted the contract: '{instance.title}'.\n\n"
                    f"Now you can deposit the fund to escrow and the collaboration can begin.\n\n"
-                   f"https://tikfrontend-latest.onrender.com/AcceptedOffer/{instance.pk}\n\n"
+                   f"https://tikpartner.duckdns.org/AcceptedOffer/{instance.pk}\n\n"
                    f"Thank you for using our platform!",
             from_email=settings.EMAIL_HOST_USER,
             recipient_list=[brand.user.email],
@@ -258,7 +258,7 @@ def notify_deliverable_status_change(sender, instance, created, **kwargs):
             message=f"Hello {brand.user.first_name} (from '{brand.company_name}'),\n\n"
                    f"{influencer.user.first_name} from '{influencer.display_name}' has submitted the deliverable: '{instance.title}' for contract: '{contract.title}'.\n\n"
                    f"Please review the submission and provide your approval.\n\n"
-                   f"https://tikfrontend-latest.onrender.com/ApproveWork/{contract.id}"
+                   f"https://tikpartner.duckdns.org/ApproveWork/{contract.id}\n\n"
                    f"Thank you for using our platform!",
             from_email=settings.EMAIL_HOST_USER,
             recipient_list=[brand.user.email],
@@ -284,7 +284,7 @@ def notify_deliverable_status_change(sender, instance, created, **kwargs):
             message=f"Hello {influencer.user.first_name} (from '{influencer.display_name}'),\n\n"
                    f"{brand.user.first_name} from '{brand.company_name}' has requested revisions for deliverable: '{instance.title}' (Contract: '{contract.title}').\n\n"
                    f"Please revise the work based on the requested changes and submit the updated work.\n\n"
-                   f"https://tikfrontend-latest.onrender.com/InfRevisionContract/{contract.id}"
+                   f"https://tikpartner.duckdns.org/InfRevisionContract/{contract.id}\n\n"
                    f"Thank you for using our platform!",
             from_email=settings.EMAIL_HOST_USER,
             recipient_list=[influencer.user.email],
@@ -312,7 +312,7 @@ def notify_deliverable_status_change(sender, instance, created, **kwargs):
             message=f"Hello {brand.user.first_name} (from '{brand.company_name}'),\n\n"
                    f"{influencer.user.first_name} from '{influencer.display_name}' has resubmitted/updated the deliverable: '{instance.title}' for contract: '{contract.title}' with your requested revisions.\n\n"
                    f"Please review the updated submission.\n\n"
-                   f"https://tikfrontend-latest.onrender.com/RevisionContract/{contract.id}"
+                   f"https://tikpartner.duckdns.org/RevisionContract/{contract.id}\n\n"
                    f"Thank you for using our platform!",
             from_email=settings.EMAIL_HOST_USER,
             recipient_list=[brand.user.email],
@@ -373,7 +373,7 @@ def notify_review_changes(sender, instance, created, **kwargs):
             message=f"Hello {influencer_user.first_name} (from '{influencer.display_name}'),\n\n"
                    f"You have received a new {instance.rating}-star review {stars} from {brand_user.first_name} ('{brand.company_name}') for the contract: '{contract.title}'.\n\n"
                    f"Review: \"{instance.review_text or 'No review text.'}\"\n\n"
-                   f"https://tikfrontend-latest.onrender.com/InfReviewedContract/{contract.id}"
+                   f"https://tikpartner.duckdns.org/InfReviewedContract/{contract.id}\n\n"
                    f"This review helps build your reputation on our platform.\n\n"
                    f"Thank you for using our platform!",
             from_email=settings.EMAIL_HOST_USER,

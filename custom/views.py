@@ -49,13 +49,13 @@ class PasswordResetRequestView(APIView):
             uid = urlsafe_base64_encode(force_bytes(user.pk))         #this encodes the user id
             
             # In a real-world scenario, you would include a link to your frontend
-            #reset_link = f"https://tikfrontend-latest.onrender.com/PasswordReset?uid={uid}&token={token}"
+            #reset_link = f"https://tikpartner.duckdns.org/PasswordReset?uid={uid}&token={token}"
 
             # Check user_type and create appropriate reset link
             if user.user_type == 'influencer':
-                reset_link = f"https://tikfrontend-latest.onrender.com/InfluencerPasswordReset?uid={uid}&token={token}"
+                reset_link = f"https://tikpartner.duckdns.org/InfluencerPasswordReset?uid={uid}&token={token}"
             elif user.user_type == 'brand':
-                reset_link = f"https://tikfrontend-latest.onrender.com/BrandPasswordReset?uid={uid}&token={token}"
+                reset_link = f"https://tikpartner.duckdns.org/BrandPasswordReset?uid={uid}&token={token}"
             
             # Send email
             send_mail(

@@ -61,9 +61,9 @@ SECRET_KEY = os.getenv('SECRET_KEY')
 # SECURITY WARNING: don't run with debug turned on in production!
 #DEBUG = True
 
-# '.onrender.com',  
+# '.onrender.com',  # in allowed hosts, you only put a domain name not the protocol (https://) or path (/backend/).
 ALLOWED_HOSTS = [
-    'tikbackend.onrender.com',
+    'tikpartner.duckdns.org',   # for both frontend and backend # for frontend, important for production 403 websocket error   
     'localhost',
     '127.0.0.1',
 ]
@@ -130,11 +130,21 @@ ASGI_APPLICATION = 'tikBackend.asgi.application'
 
 
 #Configure Channel Layers for produuction (using Redis)   # Configuring django channels to use redis as a message broker
+# CHANNEL_LAYERS = {
+#     "default": {
+#         "BACKEND": "channels_redis.core.RedisChannelLayer",
+#         "CONFIG": {
+#             "hosts": [("127.0.0.1", 6379)],  # Ensure Redis is running
+#         },
+#     },
+# }
+
+
 CHANNEL_LAYERS = {
     "default": {
         "BACKEND": "channels_redis.core.RedisChannelLayer",
         "CONFIG": {
-            "hosts": [("127.0.0.1", 6379)],  # Ensure Redis is running
+            "hosts": [os.environ.get("REDIS_URL")],
         },
     },
 }
@@ -219,6 +229,7 @@ SIMPLE_JWT = {
     "REFRESH_TOKEN_LIFETIME": timedelta(days=3),
 }
 
+CSRF_TRUSTED_ORIGINS = ['https://tikpartner.duckdns.org']    # important for production 403 websocket error  # no trailing slash in here
 CORS_ALLOW_ALL_ORIGINS = True
 
 CORS_ALLOW_CREDENTIALS = True
@@ -250,7 +261,7 @@ STRIPE_WEBHOOK_SECRET = 'whsec_BEPjIaWFUdRzGgiDJRLpNSHN1l3d18bl'
 
 TIKTOK_CLIENT_KEY = 'sbaweuralgopknrhuo'
 TIKTOK_CLIENT_SECRET = 'Kr3WE2CbqjhID2gsDoty7DpMEGT3wA05'
-TIKTOK_REDIRECT_URI = 'https://tikfrontend-latest.onrender.com/InfluencerSignup'
+TIKTOK_REDIRECT_URI = 'https://tikpartner.duckdns.org/InfluencerSignup'
 
 
 
@@ -268,6 +279,7 @@ cloudinary.config(
     cloud_name="dbahlieut",
     api_key="853862792599424",
     api_secret="J7yRB_qkLa-kOXZ_gSEA9V-k27s",
+    secure=True  # Forces HTTPS URLs
 )
 
-FRONTEND_URL = "https://tikfrontend-latest.onrender.com"
+FRONTEND_URL = "https://tikpartner.duckdns.org/"
